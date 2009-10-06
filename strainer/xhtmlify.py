@@ -2,6 +2,9 @@
 """An HTML to XHTML converter."""
 import re, htmlentitydefs
 
+
+__all__ = ['xhtmlify', 'ValidationError']
+
 DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[_a-zA-Z\-][_a-zA-Z0-9\-]*(?::[_a-zA-Z\-][_a-zA-Z0-9\-]*)?)'
 BAD_ATTR_RE = r'''[^<>\s"'][^<>\s]*'''
@@ -273,3 +276,4 @@ def xmlparse(snippet):
 
 if __name__=='__main__':
     test()
+
