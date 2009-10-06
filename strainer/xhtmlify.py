@@ -8,16 +8,25 @@ BAD_ATTR_RE = r'''[^<>\s"'][^<>\s]*'''
 ATTR_RE = r'''%s\s*(?:=\s*(?:".*?"|'.*?'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
 COMMENT_RE = r'<!--.*?-->|<!\s*%s.*?>' % NAME_RE # comment or doctype-alike
-TAG_RE = r'%s|%s|<([^<>]*?)>|<' % (COMMENT_RE, CDATA_RE)
+TAG_RE = r'%s|%s|<([^<>]*)>|<' % (COMMENT_RE, CDATA_RE)
 INNARDS_RE = r'(%s\s*(?:%s\s*)*(/?)\Z)|(/%s\s*\Z)|(\?.*)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
 
-SELF_CLOSING_TAGS = ['br' , 'hr', 'input', 'img', 'meta',
+SELF_CLOSING_TAGS = ['br', 'hr', 'input', 'img', 'meta',
                      'spacer', 'link', 'frame', 'base'] # from BeautifulSoup
 CDATA_TAGS = ['script']
+# "Structural tags" are those that cause us to auto-close any open <p> tag.
+# This is hard to get right. Useful URLs to consult:
+#   * http://htmlhelp.com/reference/html40/block.html
+#   * http://www.cs.tut.fi/~jkorpela/html/nesting.html
+#   * http://validator.w3.org/
 STRUCTURAL_TAGS = [
-    'h1', 'h2', 'h3', 'h4', 'h5', 'blockquote', 'div', 'td',
-    'ul', 'ol', 'li', 'dl', 'dd', 'dt', 'body',  # deliberately excluding <p>
+    # 'center', # no such tag in XHTML, but we allow it anywhere
+    # 'div', # can contain anything, anything can contain div
+    # 'noframes', 'noscript', # deliberately ignoring these
+    'address', 'blockquote', 'dir', 'dl', 'fieldset', 'form',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'isindex', 'menu',
+    'ol', 'p', 'pre', 'table', 'ul',
     'section', 'article', 'aside', 'header', 'footer', 'nav'  # HTML 5
 ]
 
@@ -41,14 +50,15 @@ def ampfix(value):
         elif text[:2] == "&#":
             # character reference
             try:
-                if text[:3] == "&#x":
+                if text[:3] in ("&#x", "&#X"):
                     unichr(int(text[3:-1], 16))
                 else:
                     unichr(int(text[2:-1], 10))
             except ValueError:
                 pass
             else:
-                return text  # it's well-formed
+                # "&#X...;" is invalid in XHTML
+                return text.lower()  # well-formed
         else:
             # named entity
             try:
@@ -102,7 +112,9 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
 
     for tag in cdata_tags:
         assert tag not in self_closing_tags
-    assert 'p' not in structural_tags
+    assert 'div' not in structural_tags  # can safely nest with <p>s
+    assert 'span' not in structural_tags
+    # ... but 'p' can be in structural_tags => disallow nested <p>s.
     tags = []
     result = []
     output = result.append
@@ -148,8 +160,10 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             if prevtag in self_closing_tags:
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
-            if (tagname==prevtag and tagname not in ('div', 'span')) or ( 
-               prevtag=='p' and tagname in structural_tags):
+            # No tags other than <div> and <span> can self-nest (I think)
+            # and we automatically close <p> tags before structural tags.
+            if (tagname==prevtag and tagname not in ('div', 'span')) or (
+                prevtag=='p' and tagname in structural_tags):
                 tags.pop()
                 output('</%s>' % prevtag)
                 #prevtag = tags and tags[-1][0].lower() or None  # not needed
@@ -177,10 +191,14 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
                     tags.pop()
                     prevtag = tags and tags[-1][0].lower() or None
                     assert prevtag not in self_closing_tags
-            if (prevtag=='p' and tagname in structural_tags) or (
-                prevtag=='li' and tagname in ('ol', 'ul')) or (
-                prevtag=='dd' and tagname=='dl') or (
-                prevtag=='area' and tagname=='map'):
+            # If we have found a mismatched close tag, we may insert
+            # a close tag for the previous tag to fix it in some cases.
+            # Specifically, closing a container can close an open child.
+            if prevtag!=tagname and (
+                 (prevtag=='p' and tagname in structural_tags) or (
+                  prevtag=='li' and tagname in ('ol', 'ul')) or (
+                  prevtag=='dd' and tagname=='dl') or (
+                  prevtag=='area' and tagname=='map')):
                 output('</%s>' % prevtag)
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
@@ -219,7 +237,7 @@ def test(html=None):
     except ValidationError:
         print xhtml
         raise
-    xmlparse(xhtml)
+    xmlparse(re.sub('(?s)<!.*?>', '', xhtml))  # ET can't handle <!...>
     if len(sys.argv)==2:
         print xhtml
     return xhtml
