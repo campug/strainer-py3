@@ -198,10 +198,13 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             # a close tag for the previous tag to fix it in some cases.
             # Specifically, closing a container can close an open child.
             if prevtag!=tagname and (
-                 (prevtag=='p' and tagname in structural_tags) or (
-                  prevtag=='li' and tagname in ('ol', 'ul')) or (
-                  prevtag=='dd' and tagname=='dl') or (
-                  prevtag=='area' and tagname=='map')):
+                 (prevtag=='p' and tagname in structural_tags) or
+                 (prevtag=='li' and tagname in ('ol', 'ul')) or
+                 (prevtag=='dd' and tagname=='dl') or
+                 (prevtag=='area' and tagname=='map') or
+                 (prevtag=='td' and tagname=='tr') or
+                 (prevtag=='th' and tagname=='tr')
+            ):
                 output('</%s>' % prevtag)
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
