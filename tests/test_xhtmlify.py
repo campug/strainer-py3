@@ -83,3 +83,158 @@ def test_insert_end_th_before_end_tr():
     else:
         assert r==e, r
 
+# script tags are a complete nightmare. Our output has to parse
+# sensibly in both HTML and XHTML parsers, which is far from easy.
+# Our approach is to only escape '<', '>' and '&', and to do it in
+# different ways depending on the JavaScript syntactic context.
+# This will break if browsers ever support languages other than
+# JavaScript...
+def test_script_simple():
+    s = '<script>/* test */</script>'
+    e = '<script>/* test */</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_lt():
+    s = '<script> 1 < 2 </script>'
+    e = '<script> 1 /*<![CDATA[*/ < /*]]>*/ 2 </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt():
+    s = '<script> 2 > 1 </script>'
+    e = '<script> 2 /*<![CDATA[*/ > /*]]>*/ 1 </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_amp():
+    s = '<script> 1 & 2 </script>'
+    e = '<script> 1 /*<![CDATA[*/ & /*]]>*/ 2 </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_lt_in_block_comment():
+    s = '<script>/* < */</script>'
+    e = '<script>/* &lt; */</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_block_comment():
+    s = '<script>/* > */</script>'
+    e = '<script>/* &gt; */</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_lt_in_line_comment():
+    s = '<script>// < </script>'
+    e = '<script>// &lt; </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_line_comment():
+    s = '<script>// > </script>'
+    e = '<script>// &gt; </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_amp_in_line_comment():
+    s = '<script>// > </script>'
+    e = '<script>// &gt; </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_lt_in_dquote_string():
+    s = r'<script> " \"< " </script>'
+    e = r'<script> " \"\x%02x " </script>' % ord('<')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_dquote_string():
+    s = r'<script> " \"> " </script>'
+    e = r'<script> " \"\x%02x " </script>' % ord('>')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_amp_in_dquote_string():
+    s = r'<script> " \"& " </script>'
+    e = r'<script> " \"\x%02x " </script>' % ord('&')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_lt_in_squote_string():
+    s = r"<script> ' \'< ' </script>"
+    e = r"<script> ' \'\x%02x ' </script>" % ord('<')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_squote_string():
+    s = r"<script> ' \'> ' </script>"
+    e = r"<script> ' \'\x%02x ' </script>" % ord('>')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_amp_in_squote_string():
+    s = r"<script> ' \'& ' </script>"
+    e = r"<script> ' \'\x%02x ' </script>" % ord('&')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
