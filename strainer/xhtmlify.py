@@ -72,6 +72,8 @@ def ampfix(value):
     return re.sub("&#?\w+;|&", fixup, value)
 
 def fix_attrs(attrs):
+    """Returns an XHTML-clean version of attrs, the attributes part
+       of an (X)HTML tag. Tries to make as few changes as possible."""
     if not attrs:
         return ''  # most tags have no attrs, quick exit in that case
     lastpos = 0
