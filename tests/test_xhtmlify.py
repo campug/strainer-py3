@@ -1,5 +1,20 @@
-from strainer.xhtmlify import xhtmlify, ValidationError
+import re
 
+from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
+
+
+def xhtmlify(html):
+    """Call the real xhtmlify and check it outputs well-formed XML
+       and that it it idempotent (makes no changes when fed its output)."""
+    xhtml = _xhtmlify(html)
+    try:
+        # ET can't handle <!...>
+        stripped_xhtml = re.sub(r'(?s)<!(?!\[).*?>', '', xhtml)
+        xmlparse(stripped_xhtml)
+    except Exception, e:
+        assert False, (stripped_xhtml, str(e))
+    assert xhtml == _xhtmlify(xhtml), xhtml
+    return xhtml
 
 def test_dont_allow_nesting_ps():
     # Disallow nesting <p> tags since that's what HTML 4 says
@@ -119,6 +134,16 @@ def test_script_cdata_amp():
     else:
         assert r==e, r
 
+def test_script_cdata_amp():
+    s = '<script>var amp=2; amp += 3 &amp;</script>'
+    e = '<script>var amp=2; amp += 3 /*<![CDATA[*/ & /*]]>*/amp;</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_script_cdata_lt_in_block_comment():
     s = '<script>/* < */</script>'
     e = '<script>/* &lt; */</script>'
@@ -140,8 +165,28 @@ def test_script_cdata_lt_in_line_comment():
         assert r==e, r
 
 def test_script_cdata_amp_in_line_comment():
+    s = '<script>// & </script>'
+    e = '<script>// &amp; </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_line_comment():
     s = '<script>// > </script>'
-    e = '<script>// &gt; </script>'
+    e = '<script>// > </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_end_marker_in_line_comment():
+    s = '<script>// <![CDATA[x]]> ]]> <![CDATA[ </script>'
+    e = '<script>// <![CDATA[x]]> ]]> &lt;![CDATA[ </script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
