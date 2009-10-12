@@ -98,12 +98,32 @@ def test_insert_end_th_before_end_tr():
     else:
         assert r==e, r
 
-# script tags are a complete nightmare. Our output has to parse
-# sensibly in both HTML and XHTML parsers, which is far from easy.
-# Our approach is to only escape '<', '>' and '&', and to do it in
-# different ways depending on the JavaScript syntactic context.
-# This will break if browsers ever support languages other than
-# JavaScript...
+# <script> and <style> tags are a complete nightmare.  Our output has to
+# parse sensibly in both HTML and XHTML parsers, which is far from easy.
+# Our approach is to only escape '<', '>' and '&', and to do it in different
+# ways depending on the JavaScript/CSS syntactic context.  Escaping > is
+# needed to prevent validity-breaking occurrences of "]]>".
+#
+# Possible JavaScript/CSS syntactic contexts we need to handle:
+#
+#   * a string, e.g. "<" or '&'
+#   * a comment, e.g. /* < */  or  // &
+#   * single tokens: 1 < 2  or  a &b;  (mustn't confuse this with an entity)
+#   * a CSS URL
+#   * invalid, e.g. <&]]>
+#
+# We can simplify this to three cases:
+#
+#   a) inside a string (with either kind of delimiter),
+#   b) inside a block comment, or
+#   c) other.
+#
+# We escape "<, > and & in the three cases as:
+#   a) \x3c, \x3e and \x26  (also replaces \<, \> and \>)
+#   b) <![CDATA[<]]>, <![CDATA[>]]> and <![CDATA[&]]>
+#   c) /*<![CDATA[<]]>*/, /*<![CDATA[>]]>*/ and /*<![CDATA[&]]>*/
+#
+# We must not change any text already inside <![CDATA[...]]>.
 def test_script_simple():
     s = '<script>/* test */</script>'
     e = '<script>/* test */</script>'
@@ -124,6 +144,16 @@ def test_script_cdata_lt():
     else:
         assert r==e, r
 
+def test_script_cdata_gt():
+    s = '<script> 1 > 2 </script>'
+    e = '<script> 1 /*<![CDATA[*/ > /*]]>*/ 2 </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_script_cdata_amp():
     s = '<script> 1 & 2 </script>'
     e = '<script> 1 /*<![CDATA[*/ & /*]]>*/ 2 </script>'
@@ -134,7 +164,7 @@ def test_script_cdata_amp():
     else:
         assert r==e, r
 
-def test_script_cdata_amp():
+def test_script_cdata_amp_entity():
     s = '<script>var amp=2; amp += 3 &amp;</script>'
     e = '<script>var amp=2; amp += 3 /*<![CDATA[*/ & /*]]>*/amp;</script>'
     try:
@@ -146,7 +176,27 @@ def test_script_cdata_amp():
 
 def test_script_cdata_lt_in_block_comment():
     s = '<script>/* < */</script>'
-    e = '<script>/* &lt; */</script>'
+    e = '<script>/* <![CDATA[<]]> */</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_block_comment():
+    s = '<script>/* > */</script>'
+    e = '<script>/* <![CDATA[>]]> */</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_amp_in_block_comment():
+    s = '<script>/* & */</script>'
+    e = '<script>/* <![CDATA[&]]> */</script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -156,17 +206,7 @@ def test_script_cdata_lt_in_block_comment():
 
 def test_script_cdata_lt_in_line_comment():
     s = '<script>// < </script>'
-    e = '<script>// &lt; </script>'
-    try:
-        r = xhtmlify(s)
-    except ValidationError, exc:
-        assert False, exc
-    else:
-        assert r==e, r
-
-def test_script_cdata_amp_in_line_comment():
-    s = '<script>// & </script>'
-    e = '<script>// &amp; </script>'
+    e = '<script>// /*<![CDATA[*/ < /*]]>*/ </script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -176,7 +216,27 @@ def test_script_cdata_amp_in_line_comment():
 
 def test_script_cdata_gt_in_line_comment():
     s = '<script>// > </script>'
-    e = '<script>// > </script>'
+    e = '<script>// /*<![CDATA[*/ > /*]]>*/ </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_amp_in_line_comment():
+    s = '<script>// & </script>'
+    e = '<script>// /*<![CDATA[*/ & /*]]>*/ </script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_end_marker_in_block_comment():
+    s = '<script>/* <![CDATA[x]]> ]]> <![CDATA[ */</script>'
+    e = '<script>/* <![CDATA[x]]> ]]<![CDATA[>]]> <![CDATA[<]]>![CDATA[ */</script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -186,7 +246,7 @@ def test_script_cdata_gt_in_line_comment():
 
 def test_script_cdata_end_marker_in_line_comment():
     s = '<script>// <![CDATA[x]]> ]]> <![CDATA[ </script>'
-    e = '<script>// <![CDATA[x]]> ]]> &lt;![CDATA[ </script>'
+    e = '<script>// <![CDATA[x]]> ]]/*<![CDATA[*/ > /*]]>*/ /*<![CDATA[*/ < /*]]>*/![CDATA[ </script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -197,6 +257,16 @@ def test_script_cdata_end_marker_in_line_comment():
 def test_script_cdata_lt_in_dquote_string():
     s = r'<script> " \"< " </script>'
     e = r'<script> " \"\x%02x " </script>' % ord('<')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_dquote_string():
+    s = r'<script> " \"> " </script>'
+    e = r'<script> " \"\x%02x " </script>' % ord('>')
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -217,6 +287,16 @@ def test_script_cdata_amp_in_dquote_string():
 def test_script_cdata_lt_in_squote_string():
     s = r"<script> ' \'< ' </script>"
     e = r"<script> ' \'\x%02x ' </script>" % ord('<')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_gt_in_squote_string():
+    s = r"<script> ' \'> ' </script>"
+    e = r"<script> ' \'\x%02x ' </script>" % ord('>')
     try:
         r = xhtmlify(s)
     except ValidationError, exc:

@@ -17,7 +17,7 @@ INNARDS_RE = r'(%s\s*(?:%s\s*)*(/?)\Z)|(/%s\s*\Z)|(\?.*)|(.*)' % (
 
 SELF_CLOSING_TAGS = ['br', 'hr', 'input', 'img', 'meta',
                      'spacer', 'link', 'frame', 'base'] # from BeautifulSoup
-CDATA_TAGS = ['script']
+CDATA_TAGS = ['script', 'style']
 # "Structural tags" are those that cause us to auto-close any open <p> tag.
 # This is hard to get right. Useful URLs to consult:
 #   * http://htmlhelp.com/reference/html40/block.html
@@ -97,6 +97,69 @@ def fix_attrs(attrs):
     output(attrs[lastpos:])
     return ''.join(result)
 
+def cdatafix(value):
+    """Alters value, the body of a <script> or <style> tag, so that
+       it will be parsed equivalently by the underlying language parser
+       whether it is treated as containing CDATA (by an XHTML parser)
+       or #PCDATA (by an HTML parser).
+    """
+    cdata_re = re.compile('(%s)' % CDATA_RE, re.DOTALL)
+    result = []
+    output = result.append
+    outside_lexer  = re.compile(r'''((/\*|"|')|(<)|(>)|(&))|/|[^/"'<>&]+''')
+    comment_lexer  = re.compile(r'''((\*/)|(<)|(>)|(&))|\*|[^\*<>&]+''')
+    dqstring_lexer = re.compile(r'''\\.|((")|(\\<|<)|(\\>|>)|(\\&|&))|[^\\"<>&]+''', re.DOTALL)
+    sqstring_lexer = re.compile(r'''\\.|((')|(\\<|<)|(\\>|>)|(\\&|&))|[^\\'<>&]+''', re.DOTALL)
+    Outside, Comment, DQString, SQString = [], [], [], []
+    Outside += (outside_lexer,
+                '/*<![CDATA[*/ < /*]]>*/',
+                '/*<![CDATA[*/ > /*]]>*/',
+                '/*<![CDATA[*/ & /*]]>*/',
+                {'/*': Comment, '"': DQString, "'": SQString})
+    Comment += (comment_lexer,
+                '<![CDATA[<]]>',
+                '<![CDATA[>]]>',
+                '<![CDATA[&]]>',
+                {'*/': Outside})
+    DQString += (dqstring_lexer,
+                r'\x3c',
+                r'\x3e',
+                r'\x26',
+                {'"': Outside})
+    SQString += (sqstring_lexer,
+                r'\x3c',
+                r'\x3e',
+                r'\x26',
+                {"'": Outside})
+    names = {outside_lexer:'Outside', comment_lexer:'Comment',
+             dqstring_lexer:'DQString', sqstring_lexer:'SQString'}
+    lexer, lt_rep, gt_rep, amp_rep, next_state = Outside
+    for i, match in enumerate(cdata_re.split(value)):
+        if i%2==1:  # already wrapped up as <![CDATA[...]]>
+            output(match)
+        else:
+            pos = 0
+            while pos < len(match):
+                for m in lexer.finditer(match, pos):
+                    pos = m.end()
+                    interesting, state_changer, lt, gt, amp = m.groups()
+                    if interesting:
+                        if lt:
+                            output(lt_rep)
+                        elif gt:
+                            output(gt_rep)
+                        elif amp:
+                            output(amp_rep)
+                        else:
+                            output(state_changer)
+                            lexer, lt_rep, gt_rep, amp_rep, next_state = next_state[state_changer]
+                            break
+                    else:
+                        output(m.group())
+                else:
+                    assert pos == len(match)
+    return ''.join(result)
+
 def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
                    cdata_tags=CDATA_TAGS,
                    structural_tags=STRUCTURAL_TAGS):
@@ -132,7 +195,7 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
         innards = tag_match.group(1)
         if innards is None:
             if tag_match.group().startswith('<!'):
-                continue  # CDATA, treat it as text
+                continue  # CDATA, comment, or doctype-alike. Treat as text.
             assert tag_match.group()=='<'
             if prevtag in cdata_tags:
                 continue  # ignore until we have all the text
@@ -142,12 +205,7 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             ERROR("Empty tag")
         text = html[lastpos:pos]
         if prevtag in cdata_tags:
-            for i, match in enumerate(cdata_re.split(text)):
-                if i%2==1 or not re.search('[<>&]', match):
-                    output(match)  # already <![CDATA[...]]> or safe
-                else:
-                    output('<![CDATA[%s]]>' %
-                           match.replace(']]>', ']]]]><![CDATA[>'))
+            output(cdatafix(text))
         else:
             output(ampfix(text))
         m = re.compile(INNARDS_RE, re.DOTALL).match(innards)
@@ -245,7 +303,7 @@ def test(html=None):
     except ValidationError:
         print xhtml
         raise
-    xmlparse(re.sub('(?s)<!.*?>', '', xhtml))  # ET can't handle <!...>
+    xmlparse(re.sub('(?s)<!(?!\[).*?>', '', xhtml))  # ET can't handle <!...>
     if len(sys.argv)==2:
         print xhtml
     return xhtml
