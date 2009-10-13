@@ -292,12 +292,10 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             output(ampfix(tag_match.group()))
         lastpos = tag_match.end()
     while tags:
-        TagName, pos = tags[-1]
+        TagName, pos = tags.pop()
         tagname = TagName.lower()
-        if tagname in self_closing_tags:
-            tags.pop()
-        else:
-            ERROR("Unclosed tag <%s>" % TagName)
+        if tagname not in self_closing_tags:
+            output('</%s>' % tagname)
     output(ampfix(html[lastpos:]))
     return ''.join(result)
 

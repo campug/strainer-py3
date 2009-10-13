@@ -50,13 +50,13 @@ def test_insert_end_p_before_p():
 
 def test_dont_insert_end_p_before_div():
     s = '<p><div></div>'
-    e_exc = "Unclosed tag <p> at line 1, column 1 (char 1)"
+    e = '<p><div></div></p>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
-        assert str(exc)==e_exc, exc
+        assert False, exc
     else:
-        assert False, r
+        assert r==e, r
 
 def test_insert_end_p_before_end_h1():
     s = '<h1><p></h1>'
