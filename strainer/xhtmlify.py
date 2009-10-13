@@ -242,6 +242,8 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             if endslash:
                 output('<%s%s>' % (tagname, attrs))
             elif tagname in self_closing_tags:
+                if attrs.rstrip()==attrs:
+                    attrs += ' '
                 output('<%s%s/>' % (tagname, attrs))  # preempt any closing tag
                 tags.append((TagName, pos))
             else:

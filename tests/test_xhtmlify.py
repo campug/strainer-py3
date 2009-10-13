@@ -28,6 +28,16 @@ def test_dont_allow_nesting_ps():
     else:
         assert False, r
 
+def test_self_closing():
+    s = '<br><input value="test"><input id="x" value="test"  >'
+    e = '<br /><input value="test" /><input id="x" value="test"  />'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_insert_end_p_before_p():
     s = '<p><p></p>'
     e = '<p></p><p></p>'
