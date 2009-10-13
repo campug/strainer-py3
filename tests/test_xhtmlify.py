@@ -28,6 +28,16 @@ def test_dont_allow_nesting_ps():
     else:
         assert False, r
 
+def test_lowercases_attrs():
+    s = '<p ID=foo clAss=\'bar\'><input valUe="TesT">'
+    e = '<p id="foo" class=\'bar\'><input value="TesT" /></p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_self_closing():
     s = '<br><input value="test"><input id="x" value="test"  >'
     e = '<br /><input value="test" /><input id="x" value="test"  />'

@@ -73,7 +73,8 @@ def ampfix(value):
 
 def fix_attrs(attrs):
     """Returns an XHTML-clean version of attrs, the attributes part
-       of an (X)HTML tag. Tries to make as few changes as possible."""
+       of an (X)HTML tag. Tries to make as few changes as possible,
+       but does convert all attribute names to lowercase."""
     if not attrs:
         return ''  # most tags have no attrs, quick exit in that case
     lastpos = 0
@@ -85,9 +86,10 @@ def fix_attrs(attrs):
         attr = m.group()
         if '=' not in attr:
             assert re.compile(NAME_RE + r'\s*\Z').match(attr), repr(attr)
-            output(re.sub('(%s)' % NAME_RE, r'\1="\1"', attr))
+            output(re.sub('(%s)' % NAME_RE, r'\1="\1"', attr).lower())
         else:
             name, value = attr.split('=', 1)
+            name = name.lower()
             if len(value)>1 and value[0]+value[-1] in ("''", '""'):
                 if value[0] not in value[1:-1]:  # preserve their quoting
                     output('%s=%s' % (name, ampfix(value)))
