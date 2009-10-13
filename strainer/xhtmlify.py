@@ -167,8 +167,7 @@ def cdatafix(value):
                 lexer, lt_rep, gt_rep, amp_rep, next_state = next_state[state_changer]
         else:
             output(m.group())
-    if in_cdata:
-        return None
+    assert not in_cdata  # enforced by calling parser (I think)
     return ''.join(result)
 
 def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
@@ -216,13 +215,7 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             ERROR("Empty tag")
         text = html[lastpos:pos]
         if prevtag in cdata_tags:
-            fixed = cdatafix(text)
-            if fixed is None:
-                # FIXME: not an error, our parser just isn't good enough.
-                # A workaround for this rare case: ]]>&lt;/script><![CDATA[
-                ERROR("Unmatched <![CDATA[ in </script> or </style>")
-            else:
-                output(fixed)
+            output(cdatafix(text))
         else:
             output(ampfix(text))
         m = re.compile(INNARDS_RE, re.DOTALL).match(innards)

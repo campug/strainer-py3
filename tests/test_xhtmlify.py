@@ -345,3 +345,13 @@ def test_script_cdata_ends_in_squote_string():
         assert False, exc
     else:
         assert r==e, r
+
+def test_script_cdata_end_script_end_cdata_end_script():
+    s = r"<script><![CDATA[</script>]]></script>"
+    e = r"<script><![CDATA[</script>]]></script>"
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
