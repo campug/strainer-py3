@@ -198,7 +198,6 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
     output = result.append
     lastpos = 0
     tag_re = re.compile(TAG_RE, re.DOTALL | re.IGNORECASE)
-    cdata_re = re.compile('(%s)' % CDATA_RE, re.DOTALL)
     for tag_match in tag_re.finditer(html):
         pos = tag_match.start()
         prevtag = tags and tags[-1][0].lower() or None
