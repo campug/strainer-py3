@@ -155,15 +155,15 @@ def cdatafix(value):
                     pos = m.start()+2  # so > gets escaped as normal
                 in_cdata = False
             elif lt:
-                output(m.group() if in_cdata else lt_rep)
+                output(in_cdata and m.group() or lt_rep)
             elif gt:
-                output(m.group() if in_cdata else gt_rep)
+                output(in_cdata and m.group() or gt_rep)
             elif amp:
-                output(m.group() if in_cdata else amp_rep)
+                output(in_cdata and m.group() or amp_rep)
             elif m.group()==']':
                 output(']')
             else:
-                output(m.group() if in_cdata else state_changer)
+                output(in_cdata and m.group() or state_changer)
                 lexer, lt_rep, gt_rep, amp_rep, next_state = next_state[state_changer]
         else:
             output(m.group())
