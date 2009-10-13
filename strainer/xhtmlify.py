@@ -106,58 +106,69 @@ def cdatafix(value):
     cdata_re = re.compile('(%s)' % CDATA_RE, re.DOTALL)
     result = []
     output = result.append
-    outside_lexer  = re.compile(r'''((/\*|"|')|(<)|(>)|(&))|/|[^/"'<>&]+''')
-    comment_lexer  = re.compile(r'''((\*/)|(<)|(>)|(&))|\*|[^\*<>&]+''')
-    dqstring_lexer = re.compile(r'''\\.|((")|(\\<|<)|(\\>|>)|(\\&|&))|[^\\"<>&]+''', re.DOTALL)
-    sqstring_lexer = re.compile(r'''\\.|((')|(\\<|<)|(\\>|>)|(\\&|&))|[^\\'<>&]+''', re.DOTALL)
+    outside_lexer  = re.compile(r'''((/\*|"|')|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|/|[^/"'<>&\]]+''')
+    comment_lexer  = re.compile(r'''((\*/)|(<!\[CDATA\[)|(\]\]>)|(<)|\]|(>)|(&))|\*|[^\*<>&\]]+''')
+    dqstring_lexer = re.compile(r'''\\.|((")|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\"<>&\]]+''', re.DOTALL)
+    sqstring_lexer = re.compile(r'''\\.|((')|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\'<>&\]]+''', re.DOTALL)
     Outside, Comment, DQString, SQString = [], [], [], []
-    Outside += (outside_lexer,
+    Outside += (outside_lexer.match,
                 '/*<![CDATA[*/ < /*]]>*/',
                 '/*<![CDATA[*/ > /*]]>*/',
                 '/*<![CDATA[*/ & /*]]>*/',
                 {'/*': Comment, '"': DQString, "'": SQString})
-    Comment += (comment_lexer,
+    Comment += (comment_lexer.match,
                 '<![CDATA[<]]>',
                 '<![CDATA[>]]>',
                 '<![CDATA[&]]>',
                 {'*/': Outside})
-    DQString += (dqstring_lexer,
+    DQString += (dqstring_lexer.match,
                 r'\x3c',
                 r'\x3e',
                 r'\x26',
                 {'"': Outside})
-    SQString += (sqstring_lexer,
+    SQString += (sqstring_lexer.match,
                 r'\x3c',
                 r'\x3e',
                 r'\x26',
                 {"'": Outside})
-    names = {outside_lexer:'Outside', comment_lexer:'Comment',
-             dqstring_lexer:'DQString', sqstring_lexer:'SQString'}
+    #names = dict(zip([x[0] for x in Outside, Comment, DQString, SQString],
+    #                       ['Outside', 'Comment', 'DQString', 'SQString']))
     lexer, lt_rep, gt_rep, amp_rep, next_state = Outside
-    for i, match in enumerate(cdata_re.split(value)):
-        if i%2==1:  # already wrapped up as <![CDATA[...]]>
-            output(match)
-        else:
-            pos = 0
-            while pos < len(match):
-                for m in lexer.finditer(match, pos):
-                    pos = m.end()
-                    interesting, state_changer, lt, gt, amp = m.groups()
-                    if interesting:
-                        if lt:
-                            output(lt_rep)
-                        elif gt:
-                            output(gt_rep)
-                        elif amp:
-                            output(amp_rep)
-                        else:
-                            output(state_changer)
-                            lexer, lt_rep, gt_rep, amp_rep, next_state = next_state[state_changer]
-                            break
-                    else:
-                        output(m.group())
+    pos = 0
+    in_cdata = False
+    while pos < len(value):
+        m = lexer(value, pos)
+        #print '%s:' % names[lexer], 'in_cdata=%d' % in_cdata, repr(m.group())
+        assert m.start()==pos  # no gaps
+        pos = m.end()
+        (interesting, state_changer, cdata_start, cdata_end,
+         lt, gt, amp) = m.groups()
+        if interesting:
+            if cdata_start:
+                output(m.group())
+                in_cdata = True
+            elif cdata_end:
+                if in_cdata:
+                    output(m.group())
                 else:
-                    assert pos == len(match)
+                    output(']]')
+                    pos = m.start()+2  # so > gets escaped as normal
+                in_cdata = False
+            elif lt:
+                output(m.group() if in_cdata else lt_rep)
+            elif gt:
+                output(m.group() if in_cdata else gt_rep)
+            elif amp:
+                output(m.group() if in_cdata else amp_rep)
+            elif m.group()==']':
+                output(']')
+            else:
+                output(m.group() if in_cdata else state_changer)
+                lexer, lt_rep, gt_rep, amp_rep, next_state = next_state[state_changer]
+        else:
+            output(m.group())
+    if in_cdata:
+        return None
     return ''.join(result)
 
 def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
@@ -205,7 +216,13 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             ERROR("Empty tag")
         text = html[lastpos:pos]
         if prevtag in cdata_tags:
-            output(cdatafix(text))
+            fixed = cdatafix(text)
+            if fixed is None:
+                # FIXME: not an error, our parser just isn't good enough.
+                # A workaround for this rare case: ]]>&lt;/script><![CDATA[
+                ERROR("Unmatched <![CDATA[ in </script> or </style>")
+            else:
+                output(fixed)
         else:
             output(ampfix(text))
         m = re.compile(INNARDS_RE, re.DOTALL).match(innards)

@@ -98,6 +98,28 @@ def test_insert_end_th_before_end_tr():
     else:
         assert r==e, r
 
+def test_end_tag_in_cdata():
+    s = '<p><![CDATA[</p>]]></p>'
+    e = '<p><![CDATA[</p>]]></p>'
+    # '<p>&lt;/p></p>' would be a better XHTML/HTML polyglot, but
+    # would break our rule of only making changes where necessary.
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_unclosed_cdata():
+    s = '<p><![CDATA[</p>'
+    e_exc = 'Unescaped "<" or unfinished tag at line 1, column 4 (char 4)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
+
 # <script> and <style> tags are a complete nightmare.  Our output has to
 # parse sensibly in both HTML and XHTML parsers, which is far from easy.
 # Our approach is to only escape '<', '>' and '&', and to do it in different
@@ -235,8 +257,8 @@ def test_script_cdata_amp_in_line_comment():
         assert r==e, r
 
 def test_script_cdata_end_marker_in_block_comment():
-    s = '<script>/* <![CDATA[x]]> ]]> <![CDATA[ */</script>'
-    e = '<script>/* <![CDATA[x]]> ]]<![CDATA[>]]> <![CDATA[<]]>![CDATA[ */</script>'
+    s = '<script>/* <![CDATA[x]]> ]]> */</script>'
+    e = '<script>/* <![CDATA[x]]> ]]<![CDATA[>]]> */</script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -245,8 +267,8 @@ def test_script_cdata_end_marker_in_block_comment():
         assert r==e, r
 
 def test_script_cdata_end_marker_in_line_comment():
-    s = '<script>// <![CDATA[x]]> ]]> <![CDATA[ </script>'
-    e = '<script>// <![CDATA[x]]> ]]/*<![CDATA[*/ > /*]]>*/ /*<![CDATA[*/ < /*]]>*/![CDATA[ </script>'
+    s = '<script>// <![CDATA[x]]> ]]> </script>'
+    e = '<script>// <![CDATA[x]]> ]]/*<![CDATA[*/ > /*]]>*/ </script>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -307,6 +329,16 @@ def test_script_cdata_gt_in_squote_string():
 def test_script_cdata_amp_in_squote_string():
     s = r"<script> ' \'& ' </script>"
     e = r"<script> ' \'\x%02x ' </script>" % ord('&')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_ends_in_squote_string():
+    s = r"<script> <![CDATA['x ]]>& ' </script>"
+    e = r"<script> <![CDATA['x ]]>\x%02x ' </script>" % ord('&')
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
