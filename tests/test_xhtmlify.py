@@ -118,6 +118,46 @@ def test_insert_end_th_before_end_tr():
     else:
         assert r==e, r
 
+def test_ampersand():
+    s = '&'
+    e = '&#%d;' % ord('&')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_less_than():
+    s = '<'
+    e_exc = 'Unescaped "<" or unfinished tag at line 1, column 1 (char 1)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
+
+def test_greater_than():
+    s = '>'
+    e = '>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_cdata_end_marker():
+    s = ']]>'
+    e = ']]&#%d;' % ord('>')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_end_tag_in_cdata():
     s = '<p><![CDATA[</p>]]></p>'
     e = '<p><![CDATA[</p>]]></p>'
