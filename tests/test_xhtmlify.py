@@ -200,7 +200,7 @@ def test_unclosed_cdata():
 #   b) inside a block comment, or
 #   c) other.
 #
-# We escape "<, > and & in the three cases as:
+# We escape <, > and & in the three cases as:
 #   a) \x3c, \x3e and \x26  (also replaces \<, \> and \>)
 #   b) <![CDATA[<]]>, <![CDATA[>]]> and <![CDATA[&]]>
 #   c) /*<![CDATA[<]]>*/, /*<![CDATA[>]]>*/ and /*<![CDATA[&]]>*/
