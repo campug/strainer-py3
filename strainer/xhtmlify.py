@@ -45,7 +45,9 @@ class ValidationError(Exception):
 
 def ampfix(value):
     """Replaces ampersands in value that aren't part of an HTML entity.
-    Adapted from <http://effbot.org/zone/re-sub.htm#unescape-html>."""
+    Adapted from <http://effbot.org/zone/re-sub.htm#unescape-html>.
+    Also converts all entities to numeric form and replaces any
+    unmatched "]]>"s with "]]&#62;"."""
     def fixup(m):
         text = m.group(0)
         if text=='&':
@@ -69,6 +71,8 @@ def ampfix(value):
             except KeyError:
                 pass
         return '&#38;' + text[1:]
+    value = re.compile('(<!\[CDATA\[.*?\]\]>)|\]\]>', re.DOTALL).sub(
+        (lambda m: m.group(1) or "]]&#62;"), value)
     return re.sub("&#?\w+;|&", fixup, value)
 
 def fix_attrs(attrs):
