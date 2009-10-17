@@ -12,7 +12,7 @@ ATTR_RE = r'''%s\s*(?:=\s*(?:".*?"|'.*?'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
 COMMENT_RE = r'<!--.*?-->|<!\s*%s.*?>' % NAME_RE # comment or doctype-alike
 TAG_RE = r'%s|%s|<([^<>]*)>|<' % (COMMENT_RE, CDATA_RE)
-INNARDS_RE = r'(%s\s*(?:%s\s*)*(/?)\Z)|(/%s\s*\Z)|(\?.*)|(.*)' % (
+INNARDS_RE = r'(%s\s*(?:%s\s*)*(/?)\Z)|(/%s\s*\Z)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
 
 SELF_CLOSING_TAGS = ['br', 'hr', 'input', 'img', 'meta',
@@ -47,7 +47,7 @@ def ampfix(value):
     """Replaces ampersands in value that aren't part of an HTML entity.
     Adapted from <http://effbot.org/zone/re-sub.htm#unescape-html>.
     Also converts all entities to numeric form and replaces any
-    unmatched "]]>"s with "]]&#62;"."""
+    unmatched "]]>"s with "]]&gt;"."""
     def fixup(m):
         text = m.group(0)
         if text=='&':
@@ -66,13 +66,13 @@ def ampfix(value):
                 return text.lower()  # well-formed
         else:
             # named entity
-            try:
-                return '&#%d;' % htmlentitydefs.name2codepoint[text[1:-1]]
-            except KeyError:
+            if text[1:-1] in htmlentitydefs.name2codepoint:
+                return text
+            else:
                 pass
-        return '&#38;' + text[1:]
+        return '&amp;' + text[1:]
     value = re.compile('(<!\[CDATA\[.*?\]\]>)|\]\]>', re.DOTALL).sub(
-        (lambda m: m.group(1) or "]]&#62;"), value)
+        (lambda m: m.group(1) or "]]&gt;"), value)
     return re.sub("&#?\w+;|&", fixup, value)
 
 def fix_attrs(attrs):
@@ -291,7 +291,7 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
                     tags.pop()
             else:
                 ERROR("Unexpected closing tag </%s>" % TagName)
-        elif m.group(5): # mismatch
+        elif m.group(4): # mismatch
             ERROR("Malformed tag")
         else:
             # We don't do any validation on pre-processing tags (<? ... >).
@@ -309,7 +309,10 @@ def test(html=None):
     if html is None:
         import sys
         if len(sys.argv)==2:
-            html = open(sys.argv[1]).read()
+            if sys.argv[1]=='-':
+                html = sys.stdin.read()
+            else:
+                html = open(sys.argv[1]).read()
         else:
             sys.exit('usage: %s HTMLFILE' % sys.argv[0])
     xhtml = xhtmlify(html)

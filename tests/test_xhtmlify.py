@@ -119,8 +119,8 @@ def test_insert_end_th_before_end_tr():
         assert r==e, r
 
 def test_ampersand():
-    s = '&'
-    e = '&#%d;' % ord('&')
+    s = '<p>&</p><p>&amp;</p>'
+    e = '<p>&amp;</p><p>&amp;</p>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -131,6 +131,16 @@ def test_ampersand():
 def test_less_than():
     s = '<'
     e_exc = 'Unescaped "<" or unfinished tag at line 1, column 1 (char 1)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
+
+def test_less_than2():
+    s = '<p><</p>'
+    e_exc = 'Unescaped "<" or unfinished tag at line 1, column 4 (char 4)'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -150,7 +160,7 @@ def test_greater_than():
 
 def test_cdata_end_marker():
     s = ']]>'
-    e = ']]&#%d;' % ord('>')
+    e = ']]&gt;'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -415,3 +425,25 @@ def test_script_cdata_end_script_end_cdata_end_script():
         assert False, exc
     else:
         assert r==e, r
+
+def test_space_before_tag_name():
+    s = r"< p>"
+    e_exc = 'Malformed tag at line 1, column 1 (char 1)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
+
+def test_pi_unsupported():
+    # If adding support, see http://bugs.python.org/issue2746
+    # It would be easy to accidentally introduce an XSS vector.
+    s = r"<p><?php 1 & 2 ?></p>"
+    e_exc = 'Malformed tag at line 1, column 4 (char 4)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
