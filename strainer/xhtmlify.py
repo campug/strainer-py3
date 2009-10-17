@@ -209,9 +209,14 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
         prevtag = tags and tags[-1][0].lower() or None
         innards = tag_match.group(1)
         if innards is None:
-            if tag_match.group().startswith('<!'):
-                continue  # CDATA, comment, or doctype-alike. Treat as text.
-            assert tag_match.group()=='<'
+            whole_tag = tag_match.group()
+            if whole_tag.startswith('<!'):
+                # CDATA, comment, or doctype-alike. Treat as text.
+                if re.match(r'(?i)<!doctype\s', whole_tag):
+                    output('<!DOCTYPE')
+                    lastpos += 9
+                continue
+            assert whole_tag=='<'
             if prevtag in cdata_tags:
                 continue  # ignore until we have all the text
             else:
