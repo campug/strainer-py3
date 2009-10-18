@@ -158,6 +158,36 @@ def test_greater_than():
     else:
         assert r==e, r
 
+def test_apos():
+    s = "<p>'</p><p>&apos;</p>"
+    e = "<p>'</p><p>&apos;</p>"
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_quot():
+    s = '<p>"</p><p>&quot;</p>'
+    e = '<p>"</p><p>&quot;</p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_euro():
+    s = '<p>&euro;</p>'
+    e = '<p>&#x20ac;</p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_cdata_end_marker():
     s = ']]>'
     e = ']]&gt;'

@@ -65,11 +65,18 @@ def ampfix(value):
                 # "&#X...;" is invalid in XHTML
                 return text.lower()  # well-formed
         else:
-            # named entity
-            if text[1:-1] in htmlentitydefs.name2codepoint:
+            # Named entity. So that no external DTDs are needed
+            # for validation, we only preserve XML hard-coded
+            # named entities.
+            name = text[1:-1]
+            if name in ['amp', 'lt', 'gt', 'quot', 'apos']:
                 return text
             else:
-                pass
+                cp = htmlentitydefs.name2codepoint.get(name)
+                if cp:
+                    return '&#x%x;' % cp
+                else:
+                    pass
         return '&amp;' + text[1:]
     value = re.compile('(<!\[CDATA\[.*?\]\]>)|\]\]>', re.DOTALL).sub(
         (lambda m: m.group(1) or "]]&gt;"), value)
