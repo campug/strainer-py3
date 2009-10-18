@@ -5,7 +5,7 @@ version = '0.1a2'
 
 setup(name='strainer',
       version=version,
-      description="Tools to alloww developers to cleanup web serialization objects (HTML, JSON, XHTML)",
+      description="Tools to allow developers to cleanup web serialization objects (HTML, JSON, XHTML)",
       long_description="""\
 """,
       classifiers=[], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
