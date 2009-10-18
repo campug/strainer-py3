@@ -188,6 +188,16 @@ def test_euro():
     else:
         assert r==e, r
 
+def test_unknown_entity():
+    s = '<p>&nosuch;</p>'
+    e = '<p>&amp;nosuch;</p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_cdata_end_marker():
     s = ']]>'
     e = ']]&gt;'
