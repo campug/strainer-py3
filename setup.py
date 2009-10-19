@@ -9,13 +9,14 @@ setup(name='strainer',
       long_description="""\
 """,
       classifiers=[], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
-      keywords='html json wsgi',
+      keywords='html xhtml json wsgi',
       author='Tom Lynn and Chris Perkins',
       author_email='chris@percious.com',
       url='',
       license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
+      package_data={'strainer': ['dtds/*']},
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
