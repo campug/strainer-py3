@@ -1,7 +1,4 @@
-"""Performs basic XHTML wellformedness checks.
-
-XXX This might be replaced with a full XHTML validator in future versions.
-"""
+"""Performs basic XHTML wellformedness checks."""
 import xml.sax
 import xml.sax.handler
 import htmlentitydefs
@@ -9,18 +6,20 @@ import htmlentitydefs
 from xml.sax._exceptions import SAXException
 
 
+__all__ = ['is_wellformed_xml', 'is_wellformed_xhtml']
+
 DOCTYPE_XHTML1_STRICT = (
     '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" '
     '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
 
 
-def is_wellformed(doc, entitydefs=htmlentitydefs.entitydefs):
-    """Parses an XML/XHTML document that already has a doctype.
-       See is_wellformed_part() for details of named entity parsing."""
-    return is_wellformed_part(doc, doctype='', entitydefs=entitydefs)
+def is_wellformed_xhtml(docpart):
+    """Calls is_wellformed_xml with doctype=DOCTYPE_XHTML1_STRICT
+       and entitydefs=htmlentitydefs.entitydefs."""
+    return is_wellformed_xml(docpart, doctype=DOCTYPE_XHTML1_STRICT,
+                             entitydefs=htmlentitydefs.entitydefs)
 
-def is_wellformed_part(docpart, doctype=DOCTYPE_XHTML1_STRICT,
-                       entitydefs=htmlentitydefs.entitydefs):
+def is_wellformed_xml(docpart, doctype='', entitydefs={}):
     """Prefixes doctype to docpart and parses the resulting string.
        Returns True if it parses as XML without error. If entitydefs
        is given, checks that all named entity references are keys
@@ -46,7 +45,7 @@ def is_wellformed_part(docpart, doctype=DOCTYPE_XHTML1_STRICT,
         return False
 
 def test():
-    assert is_wellformed_part('<foo>&nbsp;&auml;&#65;</foo>')
+    assert is_wellformed_xhtml('<foo>&nbsp;&auml;&#65;</foo>')
 
 if __name__=='__main__':
     test()
