@@ -15,8 +15,12 @@ TAG_RE = r'''%s|%s|<((?:[^<>'"]+|'[^']*'|"[^"]*"|'|")*)>|<''' % (COMMENT_RE, CDA
 INNARDS_RE = r'(%s[ \t\r\n]*(?:%s[ \t\r\n]*)*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
 
-SELF_CLOSING_TAGS = ['br', 'hr', 'input', 'img', 'meta',
-                     'spacer', 'link', 'frame', 'base'] # from BeautifulSoup
+SELF_CLOSING_TAGS = [
+    # As per XHTML 1.0 sections 4.6, C.2 and C.3, these are the elements
+    # in the XTML 1.0 DTDs marked "EMPTY".
+    'base', 'meta', 'link', 'hr', 'br', 'param', 'img', 'area',
+    'input', 'col', 'isindex', 'basefont', 'frame'
+]
 CDATA_TAGS = ['script', 'style']
 # "Structural tags" are those that cause us to auto-close any open <p> tag.
 # This is hard to get right. Useful URLs to consult:
