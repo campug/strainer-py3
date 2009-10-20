@@ -7,11 +7,11 @@ __all__ = ['xhtmlify', 'ValidationError']
 
 DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[_a-zA-Z\-][_a-zA-Z0-9\-]*(?::[_a-zA-Z\-][_a-zA-Z0-9\-]*)?)'
-BAD_ATTR_RE = r'''[^<> \t\r\n"'][^<> \t\r\n]*'''
-ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:".*?"|'.*?'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
+BAD_ATTR_RE = r'''[^> \t\r\n]+'''
+ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
 COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
-TAG_RE = r'%s|%s|<([^<>]*)>|<' % (COMMENT_RE, CDATA_RE)
+TAG_RE = r'''%s|%s|<((?:[^<>'"]+|'[^']*'|"[^"]*"|'|")*)>|<''' % (COMMENT_RE, CDATA_RE)
 INNARDS_RE = r'(%s[ \t\r\n]*(?:%s[ \t\r\n]*)*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
 
@@ -103,10 +103,11 @@ def fix_attrs(attrs):
             name = name.lower()
             if len(value)>1 and value[0]+value[-1] in ("''", '""'):
                 if value[0] not in value[1:-1]:  # preserve their quoting
-                    output('%s=%s' % (name, ampfix(value)))
+                    output('%s=%s' % (name, ampfix(value).replace('<', '&lt;')))
                     continue
                 value = value[1:-1]
-            output('%s="%s"' % (name, ampfix(value.replace('"', '&quot;'))))
+            output('%s="%s"' % (name, ampfix(value.replace('"', '&quot;')
+                                                  .replace('<', '&lt;'))))
     output(attrs[lastpos:])
     return ''.join(result)
 
