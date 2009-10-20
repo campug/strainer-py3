@@ -38,6 +38,66 @@ def test_lowercases_attrs():
     else:
         assert r==e, r
 
+def test_quoted_dquote_attr_is_unchanged():
+    s = r'''<img alt='"' /><img alt='&quot;' />'''
+    e = r'''<img alt='"' /><img alt='&quot;' />'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_quoted_squote_attr_is_unchanged():
+    s = r'''<img alt="'" /><img alt='&apos;' />'''
+    e = r'''<img alt="'" /><img alt='&apos;' />'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_single_dquote_attr():
+    s = r'''<img alt=" />'''
+    e = r'''<img alt="&quot;" />'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_single_squote_attr():
+    s = r'''<img alt='>'''
+    e = r'''<img alt="'" />'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_dquoted_lt_attr_is_replaced():
+    s = r'''<img alt="<"/>'''
+    e = r'''<img alt="&lt;"/>'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_squoted_lt_attr_is_replaced():
+    s = r'''<img alt='<'/>'''
+    e = r'''<img alt='&lt;'/>'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_self_closing():
     s = '<br><input value="test"><input id="x" value="test"  >'
     e = '<br /><input value="test" /><input id="x" value="test"  />'
