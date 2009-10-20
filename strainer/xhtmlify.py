@@ -7,12 +7,12 @@ __all__ = ['xhtmlify', 'ValidationError']
 
 DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[_a-zA-Z\-][_a-zA-Z0-9\-]*(?::[_a-zA-Z\-][_a-zA-Z0-9\-]*)?)'
-BAD_ATTR_RE = r'''[^<>\s"'][^<>\s]*'''
-ATTR_RE = r'''%s\s*(?:=\s*(?:".*?"|'.*?'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
+BAD_ATTR_RE = r'''[^<> \t\r\n"'][^<> \t\r\n]*'''
+ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:".*?"|'.*?'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
-COMMENT_RE = r'<!--.*?-->|<!\s*%s.*?>' % NAME_RE # comment or doctype-alike
+COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
 TAG_RE = r'%s|%s|<([^<>]*)>|<' % (COMMENT_RE, CDATA_RE)
-INNARDS_RE = r'(%s\s*(?:%s\s*)*(/?)\Z)|(/%s\s*\Z)|(.*)' % (
+INNARDS_RE = r'(%s[ \t\r\n]*(?:%s[ \t\r\n]*)*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
 
 SELF_CLOSING_TAGS = ['br', 'hr', 'input', 'img', 'meta',
@@ -96,7 +96,7 @@ def fix_attrs(attrs):
         lastpos = m.end()
         attr = m.group()
         if '=' not in attr:
-            assert re.compile(NAME_RE + r'\s*\Z').match(attr), repr(attr)
+            assert re.compile(NAME_RE + r'[ \t\r\n]*\Z').match(attr), repr(attr)
             output(re.sub('(%s)' % NAME_RE, r'\1="\1"', attr).lower())
         else:
             name, value = attr.split('=', 1)
@@ -219,7 +219,7 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             whole_tag = tag_match.group()
             if whole_tag.startswith('<!'):
                 # CDATA, comment, or doctype-alike. Treat as text.
-                if re.match(r'(?i)<!doctype\s', whole_tag):
+                if re.match(r'(?i)<!doctype[ \t\r\n]', whole_tag):
                     output('<!DOCTYPE')
                     lastpos += 9
                 continue
