@@ -91,7 +91,7 @@ def ampfix(value):
         (lambda m: m.group(1) or "]]&gt;"), value)
     return re.sub("&#?\w+;|&", fixup, value)
 
-def fix_attrs(attrs):
+def fix_attrs(attrs, ERROR=None):
     """Returns an XHTML-clean version of attrs, the attributes part
        of an (X)HTML tag. Tries to make as few changes as possible,
        but does convert all attribute names to lowercase."""
@@ -100,6 +100,7 @@ def fix_attrs(attrs):
     lastpos = 0
     result = []
     output = result.append
+    seen = {}  # enforce XML's "Well-formedness constraint: Unique Att Spec"
     for m in re.compile(ATTR_RE, re.DOTALL).finditer(attrs):
         output(attrs[lastpos:m.start()])
         lastpos = m.end()
@@ -110,6 +111,10 @@ def fix_attrs(attrs):
         else:
             name, value = attr.split('=', 1)
             name = name.lower()
+            if name in seen:
+                ERROR('Repeated attribute "%s"' % name)
+            else:
+                seen[name] = 1
             if len(value)>1 and value[0]+value[-1] in ("''", '""'):
                 if value[0] not in value[1:-1]:  # preserve their quoting
                     output('%s=%s' % (name, ampfix(value).replace('<', '&lt;')))
@@ -255,7 +260,7 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
             endslash = m.group(2)
             m = re.match(NAME_RE, innards)
             TagName, attrs = m.group(), innards[m.end():]
-            attrs = fix_attrs(attrs)
+            attrs = fix_attrs(attrs, ERROR=ERROR)
             tagname = TagName.lower()
             if prevtag in self_closing_tags:
                 tags.pop()

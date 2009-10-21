@@ -567,3 +567,13 @@ def test_bad_character_reference():
         assert False, exc
     else:
         assert r==e, r
+
+def test_repeated_attribute():
+    s = r"<p><div style='margin-top: 0px' id=x style='margin-left: 0px' />"
+    e_exc = 'Repeated attribute "style" at line 1, column 4 (char 4)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
