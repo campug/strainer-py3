@@ -6,7 +6,7 @@ import re, htmlentitydefs
 __all__ = ['xhtmlify', 'ValidationError']
 
 DEBUG = False  # if true, show stack of tags in error messages
-NAME_RE = r'(?:[_a-zA-Z\-][_a-zA-Z0-9\-]*(?::[_a-zA-Z\-][_a-zA-Z0-9\-]*)?)'
+NAME_RE = r'(?:[A-Za-z_:][A-Za-z0-9_:.-]*)' # low ascii of XML's "Name" token
 BAD_ATTR_RE = r'''[^> \t\r\n]+'''
 ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
