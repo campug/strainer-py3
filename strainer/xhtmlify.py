@@ -60,14 +60,19 @@ def ampfix(value):
             # character reference
             try:
                 if text[:3] in ("&#x", "&#X"):
-                    unichr(int(text[3:-1], 16))
+                    c = unichr(int(text[3:-1], 16))
                 else:
-                    unichr(int(text[2:-1], 10))
+                    c = unichr(int(text[2:-1], 10))
             except ValueError:
                 pass
             else:
                 # "&#X...;" is invalid in XHTML
-                return text.lower()  # well-formed
+                c = ord(c)
+                if c in (0x9, 0xA, 0xD) or 0x0020<=c<=0xD7FF or (
+                   0xE000<=c<=0xFFFD) or 0x10000<=c<=0x10FFFF: 
+                    return text.lower()  # well-formed
+                else:
+                    pass
         else:
             # Named entity. So that no external DTDs are needed
             # for validation, we only preserve XML hard-coded

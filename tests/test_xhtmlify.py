@@ -557,3 +557,13 @@ def test_doctype_is_uppercased():
         assert False, exc
     else:
         assert r==e, r
+
+def test_bad_character_reference():
+    s = r'<p>&#7;</p>'
+    e = r'<p>&amp;#7;</p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
