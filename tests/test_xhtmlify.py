@@ -587,3 +587,14 @@ def test_attribute_minimization():
         assert False, exc
     else:
         assert r==e, r
+
+def test_junk_in_final_attribute():
+    # Including the endslash is correct, we try to treat our input as HTML.
+    s = r'<p x=:;"/><img>'
+    e = r'<p x=":;&quot;/"><img /></p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
