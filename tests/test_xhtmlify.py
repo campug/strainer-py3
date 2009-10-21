@@ -577,3 +577,13 @@ def test_repeated_attribute():
         assert str(exc)==e_exc, exc
     else:
         assert False, r
+
+def test_attribute_minimization():
+    s = r'<option selected>'
+    e = r'<option selected="selected"></option>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
