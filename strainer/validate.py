@@ -1,32 +1,37 @@
 """Provides XHTML 1.0 validation using lxml."""
 import lxml.etree  # the stdlib's expat parser can't do validation
 import os
+import re
 import urlparse
 
 from pkg_resources import resource_string
 
 
 __all__ = [
+    'validate_xhtml',
+    'validate_xhtml_fragment',
+    'XHTMLSyntaxError',
     'DOCTYPE_XHTML1_STRICT',
     'DOCTYPE_XHTML1_TRANSITIONAL',
     'DOCTYPE_XHTML1_FRAMESET',
-    'DEFAULT_XHTML_TEMPLATE',
-    'validate_xhtml',
-    'validate_xhtml_fragment',
+#    'DEFAULT_XHTML_TEMPLATE',
 ]
 
 DOCTYPE_XHTML1_STRICT = (
     '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" '
-    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
+    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n')
 DOCTYPE_XHTML1_TRANSITIONAL = (
    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
-   '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">')
+   '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n')
 DOCTYPE_XHTML1_FRAMESET = (
     '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN" '
-    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">')
+    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">\n')
 
-DEFAULT_XHTML_TEMPLATE = ('<html><head><title/></head>'
-                          '<body>%s</body></html>')
+DEFAULT_XHTML_TEMPLATE = ('<html><head><title/></head><body>\n'
+                          '%s</body></html>')
+
+class XHTMLSyntaxError(RuntimeError):
+    pass
 
 _parser = None
 
@@ -57,8 +62,16 @@ def validate_xhtml(xhtml, doctype=''):
        If not given or '', doctype will be extracted from the document.
        The resulting doctype must be one of DOCTYPE_XHTML1_STRICT,
        DOCTYPE_XHTML1_TRANSITIONAL or DOCTYPE_XHTML1_FRAMESET."""
-    parser = _get_parser()
-    lxml.etree.fromstring(doctype + xhtml, parser=parser)
+    try:
+        lxml.etree.fromstring(doctype + xhtml, parser=_get_parser())
+    except lxml.etree.XMLSyntaxError, e:
+        # Try to fix up the error message so line numbers are
+        # relative to the fragment.
+        tline = doctype.count('\n')
+        message = re.sub(r'line (\d+)',
+                         lambda m: 'line %s' % (int(m.group(1))-tline),
+                         e.message)
+        raise XHTMLSyntaxError(message)
 
 def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
     """Validates that xhtml_fragment matches the doctype, after it
@@ -71,14 +84,15 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
         doctype = DOCTYPE_XHTML1_STRICT
     if not template:
         template = DEFAULT_XHTML_TEMPLATE
+    m = re.compile('.*?(?<!%)%s', re.DOTALL).search(template)
+    tline = m.group(0).count('\n') + 1  # line number of %s in template
     xhtml = doctype + (template % xhtml_fragment)
-    parser = _get_parser()
-    lxml.etree.fromstring(xhtml, parser=parser)
-
-def test():
-    validate_xhtml_fragment('<p/>')
     try:
-        validate_xhtml('<html/>', doctype=DOCTYPE_XHTML1_STRICT)
+        lxml.etree.fromstring(xhtml, parser=_get_parser())
     except lxml.etree.XMLSyntaxError, e:
-        assert 'Element html content does not follow the DTD' in e.message
-        assert 'expecting (head, body)' in e.message.replace(' ,', ',')
+        # Try to fix up the error message so line numbers are
+        # relative to the fragment.
+        message = re.sub(r'line (\d+)',
+                         lambda m: 'line %s' % (int(m.group(1))-tline),
+                         e.message)
+        raise XHTMLSyntaxError(message)
