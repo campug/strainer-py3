@@ -598,3 +598,23 @@ def test_junk_in_final_attribute():
         assert False, exc
     else:
         assert r==e, r
+
+def test_one_colon_in_name():
+    s = r'<py:test xmlns:py="..."/>'
+    e = r'<py:test xmlns:py="..."/>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_two_colons_in_name():
+    s = r'<a:b:c/>'
+    e_exc = r'Malformed tag at line 1, column 1 (char 1)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
