@@ -66,7 +66,7 @@ def validate_xhtml(xhtml, doctype=''):
         lxml.etree.fromstring(doctype + xhtml, parser=_get_parser())
     except lxml.etree.XMLSyntaxError, e:
         # Try to fix up the error message so line numbers are
-        # relative to the fragment.
+        # relative to xhtml.
         tline = doctype.count('\n')
         message = re.sub(r'line (\d+)',
                          lambda m: 'line %s' % (int(m.group(1))-tline),
