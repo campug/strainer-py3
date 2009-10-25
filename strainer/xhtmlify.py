@@ -341,12 +341,12 @@ def xhtmlify(html, encoding='UTF-8',
             # We don't do any validation on pre-processing tags (<? ... >).
             output(ampfix(tag_match.group()))
         lastpos = tag_match.end()
+    output(ampfix(html[lastpos:]))
     while tags:
         TagName, pos = tags.pop()
         tagname = TagName.lower()
         if tagname not in self_closing_tags:
             output('</%s>' % tagname)
-    output(ampfix(html[lastpos:]))
     result = ''.join(result)
     if not unicode_input:
         # There's an argument that we should only ever deal in bytes,

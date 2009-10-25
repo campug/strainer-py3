@@ -618,3 +618,13 @@ def test_two_colons_in_name():
         assert str(exc)==e_exc, exc
     else:
         assert False, r
+
+def test_closing_tags_at_end():
+    s = r'this<p>is<a href="..">a test'
+    e = r'this<p>is<a href="..">a test</a></p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
