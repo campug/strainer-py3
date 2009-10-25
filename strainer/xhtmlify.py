@@ -3,7 +3,7 @@
 import re, htmlentitydefs
 
 
-__all__ = ['xhtmlify', 'ValidationError']
+__all__ = ['xhtmlify', 'sniff_encoding', 'ValidationError']
 
 DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?)'
@@ -199,17 +199,33 @@ def cdatafix(value):
     assert not in_cdata  # enforced by calling parser (I think)
     return ''.join(result)
 
-def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
+def xhtmlify(html, encoding='UTF-8',
+                   self_closing_tags=SELF_CLOSING_TAGS,
                    cdata_tags=CDATA_TAGS,
                    structural_tags=STRUCTURAL_TAGS):
     """
     Parses HTML and converts it to XHTML-style tags.
-    Throws a ValidationError if the tags are badly nested or malformed.
+    Raises a ValidationError if the tags are badly nested or malformed.
     It is slightly stricter than normal HTML in some places and more lenient
-    in others, but it generally behaves in a human-friendly way.
-    It is intended to be idempotent, i.e. it should make no changes if fed its
-    own output. This implies that it accepts XHTML-style self-closing tags.
+    in others, but it generally tries to behave in a human-friendly way.
+    It is intended to be idempotent, i.e. it should make no changes if fed
+    its own output. It accepts XHTML-style self-closing tags.
     """
+    if not encoding:
+        encoding = sniff_encoding(html)
+    unicode_input = isinstance(html, unicode)
+    if unicode_input:
+        html = html.encode(encoding, 'strict')
+    if not isinstance(html, str):
+        raise TypeError("Expected string, got %s" % type(html))
+    html = html.decode(encoding, 'replace')
+    # "in HTML, the Formfeed character (U+000C) is treated as white space"
+    html = html.replace(u'\u000C', u' ')
+    # Replace disallowed characters with U+FFFD (unicode replacement char)
+    html = re.sub(  # XML 1.0 section 2.2, "Char" production
+        u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]',
+        u'\N{replacement character}', html)
+
     def ERROR(message, charpos=None):
         if charpos is None:
             charpos = pos
@@ -331,7 +347,12 @@ def xhtmlify(html, self_closing_tags=SELF_CLOSING_TAGS,
         if tagname not in self_closing_tags:
             output('</%s>' % tagname)
     output(ampfix(html[lastpos:]))
-    return ''.join(result)
+    result = ''.join(result)
+    if not unicode_input:
+        # There's an argument that we should only ever deal in bytes,
+        # but it's probably more helpful to say "unicode in => unicode out".
+        result = result.encode(encoding)
+    return result
 
 def test(html=None):
     if html is None:
@@ -382,6 +403,61 @@ def xmlparse(snippet):
         parse_error.offset = offset
         parse_error.code = e.code
         raise parse_error
+
+def sniff_encoding(xml):
+    """Detects the XML encoding as per XML 1.0 section F.1."""
+    # Lowercase encodings mean we don't need to parse the <?xml...?>
+    enc = {
+        '\x00\x00\xFE\xFF': 'utf_32_be', #UCS4 1234
+        '\xFF\xFE\x00\x00': 'utf_32_le', #UCS4 4321
+        '\x00\x00\xFF\xFE': 'undefined', #UCS4 2143 (rare, we give up)
+        '\xFE\xFF\x00\x00': 'undefined', #UCS4 3412 (rare, we give up)
+        '\x00\x00\x00\x3C': 'UTF_32_BE', #UCS4 1234 (no BOM)
+        '\x3C\x00\x00\x00': 'UTF_32_LE', #UCS4 4321 (no BOM)
+        '\x00\x00\x3C\x00': 'undefined', #UCS4 2143 (no BOM, we give up)
+        '\x00\x3C\x00\x00': 'undefined', #UCS4 3412 (no BOM, we give up)
+        '\x00\x3C\x00\x3F': 'UTF_16_BE',
+        '\x3C\x00\x3F\x00': 'UTF_16_LE',
+        '\x3C\x3F\x78\x6D': 'ASCII',
+        '\x4C\x6F\xA7\x94': 'EBCDIC',
+    }.get(xml[:4])
+    if enc and enc==enc.lower():
+        return enc
+    if not enc:
+        if xml[:3]=='\xEF\xBB\xBF':
+            return 'utf_8_sig'  # UTF-8 with these three bytes prefixed
+        elif xml[:2]=='\xFF\xFE':
+            return 'utf_16_le'
+        elif xml[:2]=='\xFE\xFF':
+            return 'utf_16_be'
+        else:
+            enc = 'UTF-8'  # "Other"
+    # Now the fun really starts. We compile the encoded sniffer regexp.
+    L = lambda s: re.escape(s.encode(enc))  # encoded form of literal s
+    oneof = lambda opts: '(?:%s)' % '|'.join(opts)
+    charset = lambda s: oneof([L(c) for c in s])
+    upper = charset('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    lower = charset('abcdefghijklmnopqrstuvwxyz')
+    digits = charset('0123456789')
+    punc = charset('._-')
+    name = '(?:%s%s*)' % (oneof([upper, lower]), 
+                          oneof([upper, lower, digits, punc]))
+    Ss = charset(' \t\r\n')+'*'  # optional white space
+    Sp = charset(' \t\r\n')+'+'  # required white space
+    Eq = ''.join([Ss, L('='), Ss])
+    optVersionInfo = '(?:%s)?' % ''.join([
+        Sp, L('version'), Eq, '(?:%s|%s)' % (
+            L("'1.")+digits+L("'"), L('"1.')+digits+L('"')) ])
+    R = re.compile(''.join([
+        L('<?xml'), optVersionInfo,
+        Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
+            L("'")+name+L("'"), L('"')+name+L('"')),
+        Ss, L('?>') ]))
+    m = R.match(xml)
+    if m:
+        return m.group('enc')[1:-1]
+    else:
+        return 'UTF-8'
 
 if __name__=='__main__':
     test()
