@@ -179,8 +179,8 @@ def test_insert_end_th_before_end_tr():
         assert r==e, r
 
 def test_ampersand():
-    s = '<p>&</p><p>&amp;</p>'
-    e = '<p>&amp;</p><p>&amp;</p>'
+    s = '<p title="&">&</p><p>&amp;</p>'
+    e = '<p title="&amp;">&amp;</p><p>&amp;</p>'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
