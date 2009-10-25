@@ -5,7 +5,7 @@ def test_validate_xhtml():
         '<html><head><title/></head><body/></html>')
 
 def test_validate_xhtml_fragment():
-    validate_xhtml_fragment('<p/>')
+    validate_xhtml_fragment('<a/>')
 
 def test_validate_invalid_xhtml():
     try:
@@ -20,4 +20,4 @@ def test_validate_invalid_xhtml_fragment():
         validate_xhtml_fragment('</p>')
     except XHTMLSyntaxError, e:
         assert e.message==('Opening and ending tag mismatch: '
-                           'body line 0 and p, line 1, column 5'), e.message
+                           'div line 0 and p, line 1, column 5'), e.message
