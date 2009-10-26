@@ -223,7 +223,7 @@ def xhtmlify(html, encoding='UTF-8',
     html = html.replace(u'\u000C', u' ')
     # Replace disallowed characters with U+FFFD (unicode replacement char)
     html = re.sub(  # XML 1.0 section 2.2, "Char" production
-        u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]',
+        u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]',
         u'\N{replacement character}', html)
 
     def ERROR(message, charpos=None):
