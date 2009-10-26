@@ -18,7 +18,7 @@ INNARDS_RE = r'(%s[ \t\r\n]*(?:%s[ \t\r\n]*)*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
 
 SELF_CLOSING_TAGS = [
     # As per XHTML 1.0 sections 4.6, C.2 and C.3, these are the elements
-    # in the XTML 1.0 DTDs marked "EMPTY".
+    # in the XHTML 1.0 DTDs marked "EMPTY".
     'base', 'meta', 'link', 'hr', 'br', 'param', 'img', 'area',
     'input', 'col', 'isindex', 'basefont', 'frame'
 ]
