@@ -92,11 +92,11 @@ def ampfix(value):
         (lambda m: m.group(1) or "]]&gt;"), value)
     return re.sub("&#?\w+;|&", fixup, value)
 
-def fix_attrs(attrs, ERROR=None):
+def fix_attrs(tagname, attrs, ERROR=None):
     """Returns an XHTML-clean version of attrs, the attributes part
        of an (X)HTML tag. Tries to make as few changes as possible,
        but does convert all attribute names to lowercase."""
-    if not attrs:
+    if not attrs and tagname!='html':
         return ''  # most tags have no attrs, quick exit in that case
     lastpos = 0
     result = []
@@ -124,6 +124,8 @@ def fix_attrs(attrs, ERROR=None):
             output('%s="%s"' % (name, ampfix(value.replace('"', '&quot;')
                                                   .replace('<', '&lt;'))))
     output(attrs[lastpos:])
+    if tagname=='html' and 'xmlns' not in seen:
+        output(' xmlns="http://www.w3.org/1999/xhtml"')
     return ''.join(result)
 
 def cdatafix(value):
@@ -277,8 +279,8 @@ def xhtmlify(html, encoding='UTF-8',
             endslash = m.group(2)
             m = re.match(NAME_RE, innards)
             TagName, attrs = m.group(), innards[m.end():]
-            attrs = fix_attrs(attrs, ERROR=ERROR)
             tagname = TagName.lower()
+            attrs = fix_attrs(tagname, attrs, ERROR=ERROR)
             if prevtag in self_closing_tags:
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None

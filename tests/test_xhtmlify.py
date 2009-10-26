@@ -628,3 +628,14 @@ def test_closing_tags_at_end():
         assert False, exc
     else:
         assert r==e, r
+
+def test_html_gets_xmlns_attribute():
+    s = r'<html><body>Test'
+    e = r'<html xmlns="http://www.w3.org/1999/xhtml"><body>Test</body></html>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
