@@ -448,8 +448,8 @@ def sniff_encoding(xml):
     Sp = charset(' \t\r\n')+'+'  # required white space
     Eq = ''.join([Ss, L('='), Ss])
     optVersionInfo = '(?:%s)?' % ''.join([
-        Sp, L('version'), Eq, '(?:%s|%s)' % (
-            L("'1.")+digits+L("'"), L('"1.')+digits+L('"')) ])
+        Sp, L('version'), Eq, oneof([L("'1.")+digits+L("'"),
+                                     L('"1.')+digits+L('"')]) ])
     R = re.compile(''.join([
         L('<?xml'), optVersionInfo,
         Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
