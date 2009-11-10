@@ -13,7 +13,7 @@ ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?''' % (NAME_RE, 
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
 COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
 TAG_RE = r'''%s|%s|<((?:[^<>'"]+|'[^']*'|"[^"]*"|'|")*)>|<''' % (COMMENT_RE, CDATA_RE)
-INNARDS_RE = r'(%s[ \t\r\n]*(?:%s[ \t\r\n]*)*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
+INNARDS_RE = r'(%s(?:[ \t\r\n]+%s)*[ \t\r\n]*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
 
 SELF_CLOSING_TAGS = [

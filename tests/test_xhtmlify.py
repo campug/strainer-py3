@@ -639,3 +639,13 @@ def test_html_gets_xmlns_attribute():
     else:
         assert r==e, r
 
+def test_innards_re_not_exponential():
+    s = '<abcdefh.ijklmnopqrst uvwxy z 0>'
+    e_exc = r'Malformed tag at line 1, column 1 (char 1)'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
+
