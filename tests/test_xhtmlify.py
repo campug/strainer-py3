@@ -1,6 +1,7 @@
 import re
 
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
+from strainer.xhtmlify import sniff_encoding
 
 
 def xhtmlify(html):
@@ -648,4 +649,44 @@ def test_innards_re_not_exponential():
         assert str(exc)==e_exc, exc
     else:
         assert False, r
+
+def test_sniffer():
+    tests = [
+        (r'',
+         'UTF-8'),
+        (r'''<?xml encoding='ISO-8859-1' ?>''',
+         'ISO-8859-1'),
+        (r'''<?xml version="1.0" encoding='ISO-8859-1' ?>''',
+         'ISO-8859-1'),
+        (r'''<?xml version="1.0" encoding='ISO-8859-1' standalone='no'?>''',
+         'ISO-8859-1'),
+        (r'''<?xml version='1.1' encoding="ISO-8859-1" standalone="yes" ?>''',
+         'ISO-8859-1'),
+        # and now the really viciously pedantic refusals...
+        (r''' <?xml version="1.0" encoding="ISO-8859-1" ?>''',
+         'UTF-8'),  # bad: space before decl
+        (r'''<?xml version=1.0 encoding="ISO-8859-1" ?>''',
+         'UTF-8'),  # bad: no quotes around version value
+        (r'''<?xml encoding="ISO-8859-1" version="1.0" ?>''',
+         'UTF-8'),  # bad: wrong order for attributes
+        (r'''<?xml version="1.0" encoding="ISO-8859-1" standalone=no ?>''',
+         'UTF-8'),  # bad: no quotes around standalone value
+        (r'''<?xml version=" 1.0" encoding="ISO-8859-1" ?>''',
+         'UTF-8'),  # bad: whitespace before version value
+        (r'''<?xml version="1.0 " encoding="ISO-8859-1" ?>''',
+         'UTF-8'),  # bad: whitespace after version value
+        (r'''<?xml version="1.0" encoding=" ISO-8859-1" ?>''',
+         'UTF-8'),  # bad: whitespace before encoding value
+        (r'''<?xml version="1.0" encoding="ISO-8859-1 " ?>''',
+         'UTF-8'),  # bad: whitespace after encoding value
+        (r'''<?xml version="1.0" encoding=Big5 ?>''',
+         'UTF-8'),  # bad: no quotes around encoding value
+    ]
+    for i, (s, e) in enumerate(tests):
+        try:
+            r = sniff_encoding(s)
+        except ValidationError, exc:
+            assert False, (exc, i)
+        else:
+            assert r==e, (r, i)
 

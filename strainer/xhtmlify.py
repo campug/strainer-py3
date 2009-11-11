@@ -436,6 +436,7 @@ def sniff_encoding(xml):
             enc = 'UTF-8'  # "Other"
     # Now the fun really starts. We compile the encoded sniffer regexp.
     L = lambda s: re.escape(s.encode(enc))  # encoded form of literal s
+    optional = lambda s: '(?:%s)?' % s
     oneof = lambda opts: '(?:%s)' % '|'.join(opts)
     charset = lambda s: oneof([L(c) for c in s])
     upper = charset('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
@@ -447,15 +448,20 @@ def sniff_encoding(xml):
     Ss = charset(' \t\r\n')+'*'  # optional white space
     Sp = charset(' \t\r\n')+'+'  # required white space
     Eq = ''.join([Ss, L('='), Ss])
-    optVersionInfo = '(?:%s)?' % ''.join([
+    VersionInfo = ''.join([
         Sp, L('version'), Eq, oneof([L("'1.")+digits+L("'"),
                                      L('"1.')+digits+L('"')]) ])
-    R = re.compile(''.join([
-        L('<?xml'), optVersionInfo,
+    # standalone="yes" is valid XML but almost certainly a lie...
+    SDDecl = ''.join([
+        Sp, L('standalone'), Eq, oneof([L("'")+oneof(['yes', 'no'])+L("'"),
+                                        L('"')+oneof(['yes', 'no'])+L('"')])])
+    R = ''.join([
+        L('<?xml'), optional(VersionInfo),
         Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
             L("'")+name+L("'"), L('"')+name+L('"')),
-        Ss, L('?>') ]))
-    m = R.match(xml)
+        optional(SDDecl),
+        Ss, L('?>') ])
+    m = re.match(R, xml)
     if m:
         return m.group('enc')[1:-1]
     else:
