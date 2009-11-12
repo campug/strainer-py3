@@ -3,7 +3,7 @@
 import re, htmlentitydefs
 
 
-__all__ = ['xhtmlify', 'sniff_encoding', 'ValidationError']
+__all__ = ['xhtmlify', 'xmldecl', 'sniff_encoding', 'ValidationError']
 
 DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?)'
@@ -200,6 +200,33 @@ def cdatafix(value):
             output(m.group())
     assert not in_cdata  # enforced by calling parser (I think)
     return ''.join(result)
+
+def xmldecl(version='1.0', encoding=None, standalone=None):
+    """Returns a valid <?xml ...?> declaration suitable for using
+       at the start of a document. Note that no other characters are
+       allowed before the declaration (other than byte-order markers).
+       Only set standalone if you really know what you're doing.
+       Raises a ValidationError if given invalid values."""
+    if not re.match(r'1\.[0-9]+\Z', version):
+        raise ValidationError('Bad version in XML declaration',
+                              0, 1, 1, [])
+    encodingdecl = ''
+    if encoding:
+        if re.match(r'[A-Za-z][A-Za-z0-9._-]*\Z', encoding):
+            encodingdecl = ' encoding="%s"' % encoding
+        else:
+            # Don't tell them expected format, guessing won't help
+            raise ValidationError('Bad encoding name in XML declaration',
+                                  0, 1, 1, [])
+    sddecl = ''
+    if standalone:
+        if re.match('(?:yes|no)\Z', standalone):
+            sddecl = ' standalone="%s"' % standalone
+        else:
+            # Don't tell them expected format, guessing won't help
+            raise ValidationError('Bad standalone value in XML declaration',
+                                  0, 1, 1, [])
+    return '<?xml version="%s"%s%s ?>' % (version, encodingdecl, sddecl)
 
 def xhtmlify(html, encoding='UTF-8',
                    self_closing_tags=SELF_CLOSING_TAGS,
