@@ -228,6 +228,31 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
                                   0, 1, 1, [])
     return '<?xml version="%s"%s%s ?>' % (version, encodingdecl, sddecl)
 
+def fix_xmldecl(html):
+    """Looks for an XML declaration near the start of html, cleans it up,
+       and returns the adjusted version of html. Doesn't add a declaration
+       if none was found."""
+    m = re.match(r'(?si)(?:\s+|<!--.*?-->)*(<\?xml\s[^>]*>\s*)', html)
+    if not m:
+        return html
+    else:
+        before, decl, after = html[:m.start(1)], m.group(1), html[m.end(1):]
+        m = re.search(
+            r'''(?ui)\sversion\s*=\s*'([^']*)'|"([^"]*)"|([^\s<>]*)''', decl)
+        if m:
+            if m.group(1) is not None:
+                g = 1
+            elif m.group(2) is not None:
+                g = 2
+            else:
+                g = 3
+            if re.match(r'1\.[0-9]+\Z', m.group(g)):
+                version = m.group()
+            else:
+                raise ValidationError('Bad version in XML declaration',
+                                      0, 1, 1, [])
+        return decl + before + after
+
 def xhtmlify(html, encoding='UTF-8',
                    self_closing_tags=SELF_CLOSING_TAGS,
                    cdata_tags=CDATA_TAGS,
@@ -240,6 +265,7 @@ def xhtmlify(html, encoding='UTF-8',
     It is intended to be idempotent, i.e. it should make no changes if fed
     its own output. It accepts XHTML-style self-closing tags.
     """
+    html = fix_xmldecl(html)
     if not encoding:
         encoding = sniff_encoding(html)
     unicode_input = isinstance(html, unicode)
@@ -435,32 +461,7 @@ def xmlparse(snippet):
 
 def sniff_encoding(xml):
     """Detects the XML encoding as per XML 1.0 section F.1."""
-    # Lowercase encodings mean we don't need to parse the <?xml...?>
-    enc = {
-        '\x00\x00\xFE\xFF': 'utf_32_be', #UCS4 1234
-        '\xFF\xFE\x00\x00': 'utf_32_le', #UCS4 4321
-        '\x00\x00\xFF\xFE': 'undefined', #UCS4 2143 (rare, we give up)
-        '\xFE\xFF\x00\x00': 'undefined', #UCS4 3412 (rare, we give up)
-        '\x00\x00\x00\x3C': 'UTF_32_BE', #UCS4 1234 (no BOM)
-        '\x3C\x00\x00\x00': 'UTF_32_LE', #UCS4 4321 (no BOM)
-        '\x00\x00\x3C\x00': 'undefined', #UCS4 2143 (no BOM, we give up)
-        '\x00\x3C\x00\x00': 'undefined', #UCS4 3412 (no BOM, we give up)
-        '\x00\x3C\x00\x3F': 'UTF_16_BE',
-        '\x3C\x00\x3F\x00': 'UTF_16_LE',
-        '\x3C\x3F\x78\x6D': 'ASCII',
-        '\x4C\x6F\xA7\x94': 'EBCDIC',
-    }.get(xml[:4])
-    if enc and enc==enc.lower():
-        return enc
-    if not enc:
-        if xml[:3]=='\xEF\xBB\xBF':
-            return 'utf_8_sig'  # UTF-8 with these three bytes prefixed
-        elif xml[:2]=='\xFF\xFE':
-            return 'utf_16_le'
-        elif xml[:2]=='\xFE\xFF':
-            return 'utf_16_be'
-        else:
-            enc = 'UTF-8'  # "Other"
+    enc = sniff_bom_encoding(xml)
     # Now the fun really starts. We compile the encoded sniffer regexp.
     L = lambda s: re.escape(s.encode(enc))  # encoded form of literal s
     optional = lambda s: '(?:%s)?' % s
@@ -490,9 +491,48 @@ def sniff_encoding(xml):
         Ss, L('?>') ])
     m = re.match(R, xml)
     if m:
-        return m.group('enc')[1:-1]
+        decl_enc = m.group('enc')[1:-1]
+        if (enc==enc.lower() and
+            codecs.lookup(enc) != codecs.lookup(decl_enc.lower)):
+                return ValidationError(
+                    "Multiply-specified encoding (BOM=>%r, XML decl'=>%r)" %
+                        (enc, decl_enc),
+                    0, 1, 1, [])
+        return decl_enc
     else:
         return 'UTF-8'
+
+def sniff_bom_encoding(xml):
+    """Reads any byte-order marker. Returns the implied encoding.
+       If the returned encoding is lowercase it means the BOM uniquely
+       identified an encoding, so we don't need to parse the <?xml...?>
+       to extract the encoding in theory."""
+    enc = {
+        '\x00\x00\xFE\xFF': 'utf_32_be', #UCS4 1234
+        '\xFF\xFE\x00\x00': 'utf_32_le', #UCS4 4321
+        '\x00\x00\xFF\xFE': 'undefined', #UCS4 2143 (rare, we give up)
+        '\xFE\xFF\x00\x00': 'undefined', #UCS4 3412 (rare, we give up)
+        '\x00\x00\x00\x3C': 'UTF_32_BE', #UCS4 1234 (no BOM)
+        '\x3C\x00\x00\x00': 'UTF_32_LE', #UCS4 4321 (no BOM)
+        '\x00\x00\x3C\x00': 'undefined', #UCS4 2143 (no BOM, we give up)
+        '\x00\x3C\x00\x00': 'undefined', #UCS4 3412 (no BOM, we give up)
+        '\x00\x3C\x00\x3F': 'UTF_16_BE',
+        '\x3C\x00\x3F\x00': 'UTF_16_LE',
+        '\x3C\x3F\x78\x6D': 'ASCII',
+        '\x4C\x6F\xA7\x94': 'EBCDIC',
+    }.get(xml[:4])
+    if enc and enc==enc.lower():
+        return enc
+    if not enc:
+        if xml[:3]=='\xEF\xBB\xBF':
+            return 'utf_8_sig'  # UTF-8 with these three bytes prefixed
+        elif xml[:2]=='\xFF\xFE':
+            return 'utf_16_le'
+        elif xml[:2]=='\xFE\xFF':
+            return 'utf_16_be'
+        else:
+            enc = 'UTF-8'  # "Other"
+    return enc
 
 if __name__=='__main__':
     test()
