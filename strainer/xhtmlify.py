@@ -232,6 +232,8 @@ def fix_xmldecl(html):
     """Looks for an XML declaration near the start of html, cleans it up,
        and returns the adjusted version of html. Doesn't add a declaration
        if none was found."""
+    # FIXME: a) Unfinished, b) Won't work. Needs rewriting to start as a more
+    # lenient sniff_encoding().
     m = re.match(r'(?si)(?:\s+|<!--.*?-->)*(<\?xml\s[^>]*>\s*)', html)
     if not m:
         return html
