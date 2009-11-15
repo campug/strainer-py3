@@ -662,6 +662,8 @@ def test_sniffer():
          'ISO-8859-1'),
         (r'''<?xml version='1.1' encoding="ISO-8859-1" standalone="yes" ?>''',
          'ISO-8859-1'),
+        (r'''<?xml version="1.0" encoding="EBCDIC-some-cp" ?>'''.encode('cp037'),
+         'EBCDIC-some-cp'),
         # and now the really viciously pedantic refusals...
         (r''' <?xml version="1.0" encoding="ISO-8859-1" ?>''',
          'UTF-8'),  # bad: space before decl
