@@ -491,7 +491,7 @@ def sniff_encoding(xml):
         Ss, L('?>') ])
     m = re.match(R, xml)
     if m:
-        decl_enc = m.group('enc')[1:-1]
+        decl_enc = m.group('enc')[1:-1].decode(enc)
         if (enc==enc.lower() and
             codecs.lookup(enc) != codecs.lookup(decl_enc.lower)):
                 return ValidationError(
@@ -507,6 +507,8 @@ def sniff_bom_encoding(xml):
        If the returned encoding is lowercase it means the BOM uniquely
        identified an encoding, so we don't need to parse the <?xml...?>
        to extract the encoding in theory."""
+    # Warning: The UTF-32 codecs aren't present before Python 2.6...
+    # See also http://bugs.python.org/issue1399
     enc = {
         '\x00\x00\xFE\xFF': 'utf_32_be', #UCS4 1234
         '\xFF\xFE\x00\x00': 'utf_32_le', #UCS4 4321
@@ -519,7 +521,7 @@ def sniff_bom_encoding(xml):
         '\x00\x3C\x00\x3F': 'UTF_16_BE',
         '\x3C\x00\x3F\x00': 'UTF_16_LE',
         '\x3C\x3F\x78\x6D': 'ASCII',
-        '\x4C\x6F\xA7\x94': 'EBCDIC',
+        '\x4C\x6F\xA7\x94': 'CP037',  # EBCDIC (unknown code page)
     }.get(xml[:4])
     if enc and enc==enc.lower():
         return enc
