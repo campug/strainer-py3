@@ -692,3 +692,12 @@ def test_sniffer():
         else:
             assert r==e, (r, i)
 
+def test_sniffer_exc():
+    s = u'<?xml version="1.0" encoding="Cp037" ?>'.encode('utf-8-sig')
+    e_exc = r'Multiply-specified encoding (BOM: utf_8_sig, XML decl: Cp037) at line 1, column 1 (char 1)'
+    try:
+        r = sniff_encoding(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
