@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """An HTML to XHTML converter."""
-import re, htmlentitydefs
+import re, htmlentitydefs, codecs
 
 
 __all__ = ['xhtmlify', 'xmldecl', 'sniff_encoding', 'ValidationError']
@@ -280,7 +280,8 @@ def xhtmlify(html, encoding='UTF-8',
     html = html.replace(u'\u000C', u' ')
     # Replace disallowed characters with U+FFFD (unicode replacement char)
     html = re.sub(  # XML 1.0 section 2.2, "Char" production
-        u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]',
+        u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD]',
+        #XXX: FIXME: [^\U00010000-\U0010FFFF] doesn't work, what to do?
         u'\N{replacement character}', html)
 
     def ERROR(message, charpos=None):
@@ -465,7 +466,10 @@ def sniff_encoding(xml):
     """Detects the XML encoding as per XML 1.0 section F.1."""
     enc = sniff_bom_encoding(xml)
     # Now the fun really starts. We compile the encoded sniffer regexp.
-    L = lambda s: re.escape(s.encode(enc))  # encoded form of literal s
+    # We must use an encoder to handle utf_8_sig properly.
+    encode = codecs.lookup(enc).incrementalencoder().encode
+    prefix = encode('')
+    L = lambda s: re.escape(encode(s))  # encoded form of literal s
     optional = lambda s: '(?:%s)?' % s
     oneof = lambda opts: '(?:%s)' % '|'.join(opts)
     charset = lambda s: oneof([L(c) for c in s])
@@ -486,6 +490,7 @@ def sniff_encoding(xml):
         Sp, L('standalone'), Eq, oneof([L("'")+oneof(['yes', 'no'])+L("'"),
                                         L('"')+oneof(['yes', 'no'])+L('"')])])
     R = ''.join([
+        prefix,  # any header such as a UTF-8 BOM
         L('<?xml'), optional(VersionInfo),
         Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
             L("'")+name+L("'"), L('"')+name+L('"')),
@@ -493,11 +498,11 @@ def sniff_encoding(xml):
         Ss, L('?>') ])
     m = re.match(R, xml)
     if m:
-        decl_enc = m.group('enc')[1:-1].decode(enc)
+        decl_enc = m.group('enc')[1:-1].decode(enc).encode('ascii')
         if (enc==enc.lower() and
-            codecs.lookup(enc) != codecs.lookup(decl_enc.lower)):
-                return ValidationError(
-                    "Multiply-specified encoding (BOM=>%r, XML decl'=>%r)" %
+            codecs.lookup(enc) != codecs.lookup(decl_enc)):
+                raise ValidationError(
+                    "Multiply-specified encoding (BOM: %s, XML decl: %s)" %
                         (enc, decl_enc),
                     0, 1, 1, [])
         return decl_enc
