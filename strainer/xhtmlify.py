@@ -594,12 +594,20 @@ def sniff_encoding(xml):
     m = re.match(R, xml)
     if m:
         decl_enc = m.group('enc')[1:-1].decode(enc).encode('ascii')
-        if (enc==enc.lower() and
-            codecs.lookup(enc) != codecs.lookup(decl_enc)):
-                raise ValidationError(
-                    "Multiply-specified encoding (BOM: %s, XML decl: %s)" %
-                        (enc, decl_enc),
-                    0, 1, 1, [])
+        bom_codec = None
+        try:
+            bom_codec = codecs.lookup(enc)
+        except LookupError:
+            pass  # unknown BOM codec, old version of Python maybe?
+        try:
+            if (bom_codec and enc==enc.lower() and
+                codecs.lookup(decl_enc)!=bom_codec):
+                    raise ValidationError(
+                        "Multiply-specified encoding "
+                        "(BOM: %s, XML decl: %s)" % (enc, decl_enc),
+                        0, 1, 1, [])
+        except LookupError:
+            pass  # unknown encoding specified, let it pass
         return decl_enc
     else:
         return 'UTF-8'
