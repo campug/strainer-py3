@@ -654,7 +654,7 @@ def test_sniffer():
     tests = [
         (r'',
          'UTF-8'),
-        (r'''<?xml encoding='ISO-8859-1' ?>''',
+        (r'''<?xml version='1.0' encoding='ISO-8859-1' ?>''',
          'ISO-8859-1'),
         (r'''<?xml version="1.0" encoding='ISO-8859-1' ?>''',
          'ISO-8859-1'),
