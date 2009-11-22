@@ -3,7 +3,7 @@
 import re, htmlentitydefs, codecs
 
 
-__all__ = ['xhtmlify', 'xmldecl', 'sniff_encoding', 'ValidationError']
+__all__ = ['xhtmlify', 'xmldecl', 'fix_xmldecl', 'sniff_encoding', 'ValidationError']
 
 DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?)'
@@ -228,32 +228,127 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
                                   0, 1, 1, [])
     return '<?xml version="%s"%s%s ?>' % (version, encodingdecl, sddecl)
 
-def fix_xmldecl(html):
-    """Looks for an XML declaration near the start of html, cleans it up,
-       and returns the adjusted version of html. Doesn't add a declaration
+def fix_xmldecl(xml, encoding=None, default_version='1.0'):
+    """Looks for an XML declaration near the start of xml, cleans it up,
+       and returns the adjusted version of xml. Doesn't add a declaration
        if none was found."""
-    # FIXME: a) Unfinished, b) Won't work. Needs rewriting to start as a more
-    # lenient sniff_encoding().
-    m = re.match(r'(?si)(?:\s+|<!--.*?-->)*(<\?xml\s[^>]*>\s*)', html)
-    if not m:
-        return html
+    if not re.match('1\.[0-9]+\Z', default_version):
+        raise ValueError("Bad default XML declaration version")
+    # This code started as a copy of sniff_encoding(), which follows the
+    # XML spec.  This version uses a more lenient parser.
+    if encoding:
+        enc = encoding
     else:
-        before, decl, after = html[:m.start(1)], m.group(1), html[m.end(1):]
-        m = re.search(
-            r'''(?ui)\sversion\s*=\s*'([^']*)'|"([^"]*)"|([^\s<>]*)''', decl)
-        if m:
-            if m.group(1) is not None:
-                g = 1
-            elif m.group(2) is not None:
-                g = 2
+        enc = sniff_bom_encoding(xml)
+    # We must use an encoder to handle utf_8_sig properly.
+    encode = codecs.lookup(enc).incrementalencoder().encode
+    prefix = encode('')
+    assert encode('''axz<?'"[]:()+*>'''*3)==encode('''axz<?'"[]:()+*>''')*3
+    L = lambda s: re.escape(encode(s))  # encoded form of literal s
+    group = lambda s: '(%s)' % s
+    optional = lambda s: '(?:%s)?' % s
+    oneof = lambda opts: '(?:%s)' % '|'.join(opts)
+    charset = lambda s: oneof([L(c) for c in s])
+    all_until = lambda s: '(?:(?!%s).)*' % s
+    caseless = lambda s: oneof([L(c.lower()) for c in s] +
+                               [L(c.upper()) for c in s])
+    upper = charset('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    lower = charset('abcdefghijklmnopqrstuvwxyz')
+    digits = charset('0123456789')
+    punc = charset('._-')
+    Name = '(?:%s%s*)' % (oneof([upper, lower]), 
+                          oneof([upper, lower, digits, punc]))
+    Ss = charset(' \t\r\n')+'*'  # optional white space
+    Sp = charset(' \t\r\n')+'+'  # required white space
+    VERSION = encode('version')
+    ENCODING = encode('encoding')
+    STANDALONE = encode('standalone')
+    StartDecl = ''.join([prefix, Ss, L('<'), Ss, L('?'), Ss,
+                         oneof([L('xml'), L('xmL'), L('xMl'), L('xML'),
+                                L('Xml'), L('XmL'), L('XMl'), L('XML')])])
+    Attr = ''.join([group(Sp), group(Name), Ss, group(L('=')), Ss, oneof([
+        group(L('"')+all_until(oneof([L('"'), L('<'), L('>')]))+L('"')),
+        group(L("'")+all_until(oneof([L("'"), L('<'), L('>')]))+L("'")),
+        group(all_until(oneof([Sp, L('?'), L('<'), L('>')]))),
+    ]) ])
+    Attr_re = re.compile(Attr, re.DOTALL)
+    EndDecl = ''.join([group(Ss), oneof([''.join([L('?'), Ss, L('>')]), L('>')])])
+    EOS = r'\Z'  # end of string
+    m = re.match(StartDecl, xml)
+    if m:
+        pos = m.end()
+        attrs = {}
+        while 1:
+            m2 = Attr_re.match(xml, pos)
+            if m2:
+                wspace, name, eq, dquoted, squoted, unquoted = m2.groups()
+                if dquoted is not None:
+                    quotes = encode('"')
+                    n = len(quotes)
+                    value = dquoted[n:-n]
+                elif squoted is not None:
+                    quotes = encode("'")
+                    n = len(quotes)
+                    value = squoted[n:-n]
+                else:
+                    quotes = encode('"')
+                    value = unquoted
+                if name in attrs:
+                    pass  # TODO: warn: already got a value for xxx
+                elif name==VERSION:
+                    m3 = re.match(Ss + group(L("1.") + digits) + Ss + EOS,
+                                  value)
+                    if m3:
+                        attrs[name] = wspace + name + eq + quotes + m3.group(1) + quotes
+                    else:
+                        pass  # TODO: warn: expected 1.x
+                elif name==ENCODING:
+                    m3 = re.match(Ss + group(Name) + Ss + EOS, value)
+                    if m3:
+                        attrs[name] = wspace + name + eq + quotes + m3.group(1) + quotes
+                    else:
+                        pass  # TODO: warn: expected a name
+                elif name==STANDALONE:
+                    m3 = re.match(
+                        Ss + oneof([
+                            group(oneof([
+                                    L('yes'), L('yeS'), L('yEs'), L('yES'),
+                                    L('Yes'), L('YeS'), L('YEs'), L('YES')])),
+                            group(oneof([L('no'), L('nO'),
+                                         L('No'), L('NO')]))
+                        ]) + Ss + EOS,
+                        value)
+                    if m3:
+                        yes, no = m3.groups()
+                        if yes:
+                            attrs[name] = wspace + name + eq + quotes + encode('yes') + quotes
+                        else:
+                            attrs[name] = wspace + name + eq + quotes + encode('no') + quotes
+                    else:
+                        pass  # TODO: warn: expected yes or no
+                else:
+                    pass  # TODO: warn: non-standard attribute name
+                pos = m2.end()
             else:
-                g = 3
-            if re.match(r'1\.[0-9]+\Z', m.group(g)):
-                version = m.group()
+                break  # doesn't look like an attribute, give up
+        m4 = re.compile(EndDecl).match(xml, pos)
+        if m4:
+            return (prefix + encode('<?xml') +
+                    attrs.get(VERSION, encode(' version="%s"' % default_version)) +
+                    (attrs.get(ENCODING) if ENCODING in attrs else '') +
+                    (attrs.get(STANDALONE) if STANDALONE in attrs else '') +
+                    m4.group(1) + encode('?>') + xml[m4.end():])
+        else:
+            m5 = re.compile(oneof([L('>'), L('<')])).search(xml, pos)
+            if m5:
+                if m5.group()==encode('>'):
+                    endpos = m5.end()
+                else:
+                    endpos = m5.start()
+                return xml[:m.start()] + xml[endpos:]  # remove bad decl
             else:
-                raise ValidationError('Bad version in XML declaration',
-                                      0, 1, 1, [])
-        return decl + before + after
+                return ''  # unterminated, drop entire document (inc. BOM)
+    return xml  # no decl detected
 
 def xhtmlify(html, encoding='UTF-8',
                    self_closing_tags=SELF_CLOSING_TAGS,
@@ -468,34 +563,34 @@ def sniff_encoding(xml):
     # Now the fun really starts. We compile the encoded sniffer regexp.
     # We must use an encoder to handle utf_8_sig properly.
     encode = codecs.lookup(enc).incrementalencoder().encode
-    prefix = encode('')
+    prefix = encode('')  # any header such as a UTF-8 BOM
     L = lambda s: re.escape(encode(s))  # encoded form of literal s
     optional = lambda s: '(?:%s)?' % s
     oneof = lambda opts: '(?:%s)' % '|'.join(opts)
     charset = lambda s: oneof([L(c) for c in s])
     upper = charset('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
     lower = charset('abcdefghijklmnopqrstuvwxyz')
-    digits = charset('0123456789')
+    digit = charset('0123456789')
+    digits = digit + '+'
     punc = charset('._-')
     name = '(?:%s%s*)' % (oneof([upper, lower]), 
-                          oneof([upper, lower, digits, punc]))
+                          oneof([upper, lower, digit, punc]))
     Ss = charset(' \t\r\n')+'*'  # optional white space
     Sp = charset(' \t\r\n')+'+'  # required white space
     Eq = ''.join([Ss, L('='), Ss])
     VersionInfo = ''.join([
         Sp, L('version'), Eq, oneof([L("'1.")+digits+L("'"),
                                      L('"1.')+digits+L('"')]) ])
+    EncodingDecl = ''.join([
+        Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
+            L("'")+name+L("'"), L('"')+name+L('"')) ])
     # standalone="yes" is valid XML but almost certainly a lie...
     SDDecl = ''.join([
-        Sp, L('standalone'), Eq, oneof([L("'")+oneof(['yes', 'no'])+L("'"),
-                                        L('"')+oneof(['yes', 'no'])+L('"')])])
-    R = ''.join([
-        prefix,  # any header such as a UTF-8 BOM
-        L('<?xml'), optional(VersionInfo),
-        Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
-            L("'")+name+L("'"), L('"')+name+L('"')),
-        optional(SDDecl),
-        Ss, L('?>') ])
+        Sp, L('standalone'), Eq, oneof([
+            L("'")+oneof([L('yes'), L('no')])+L("'"),
+            L('"')+oneof([L('yes'), L('no')])+L('"') ]) ])
+    R = ''.join([prefix, L('<?xml'), VersionInfo, optional(EncodingDecl),
+                 optional(SDDecl), Ss, L('?>') ])
     m = re.match(R, xml)
     if m:
         decl_enc = m.group('enc')[1:-1].decode(enc).encode('ascii')
