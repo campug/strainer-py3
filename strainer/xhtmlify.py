@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """An HTML to XHTML converter."""
 import re, htmlentitydefs, codecs
+import encodings.aliases
 
 
 __all__ = ['xhtmlify', 'xmldecl', 'fix_xmldecl', 'sniff_encoding', 'ValidationError']
@@ -228,18 +229,38 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
                                   0, 1, 1, [])
     return '<?xml version="%s"%s%s ?>' % (version, encodingdecl, sddecl)
 
-def fix_xmldecl(xml, encoding=None, default_version='1.0'):
+def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     """Looks for an XML declaration near the start of xml, cleans it up,
        and returns the adjusted version of xml. Doesn't add a declaration
        if none was found."""
-    if not re.match('1\.[0-9]+\Z', default_version):
-        raise ValueError("Bad default XML declaration version")
     # This code started as a copy of sniff_encoding(), which follows the
     # XML spec.  This version uses a more lenient parser.
+    EOS = r'\Z'  # end of string regexp
+    unicode_input = isinstance(xml, unicode)
+    if not re.match(r'1\.[0-9]+' + EOS, default_version):
+        raise ValueError("Bad default XML declaration version")
+    if encoding is not None:
+        if encoding in encodings.aliases.aliases:  # use the more standard name
+            encoding = encodings.aliases.aliases[encoding]
+        if not re.match('[A-Za-z][A-Za-z0-9._-]*' + EOS, encoding):
+            raise ValueError("Bad default XML declaration encoding")
+    if encoding == 'utf_16':  # spec says it must start with BOM
+        if isinstance(xml, str) and not xml.startswith(u''.encode('utf_16')):
+            xml = u''.encode('utf_16') + xml
+        # "else: pass"; Python adds the BOM when encoding unicode as UTF-16
+    if unicode_input:
+        if encoding:
+            xmlstr = xml.encode(encoding)
+        else:
+            xmlstr = xml.encode('UTF-8')
+    else:
+        xmlstr = xml
     if encoding:
         enc = encoding
     else:
-        enc = sniff_bom_encoding(xml)
+        enc = sniff_bom_encoding(xmlstr)
+    if unicode_input:
+        xml = xmlstr
     # We must use an encoder to handle utf_8_sig properly.
     encode = codecs.lookup(enc).incrementalencoder().encode
     prefix = encode('')
@@ -273,7 +294,6 @@ def fix_xmldecl(xml, encoding=None, default_version='1.0'):
     ]) ])
     Attr_re = re.compile(Attr, re.DOTALL)
     EndDecl = ''.join([group(Ss), oneof([''.join([L('?'), Ss, L('>')]), L('>')])])
-    EOS = r'\Z'  # end of string
     m = re.match(StartDecl, xml)
     if m:
         pos = m.end()
@@ -291,7 +311,7 @@ def fix_xmldecl(xml, encoding=None, default_version='1.0'):
                     n = len(quotes)
                     value = squoted[n:-n]
                 else:
-                    quotes = encode('"')
+                    quotes = encode("'")  # works for cp1026 where '"' doesn't
                     value = unquoted
                 if name in attrs:
                     pass  # TODO: warn: already got a value for xxx
@@ -331,10 +351,12 @@ def fix_xmldecl(xml, encoding=None, default_version='1.0'):
                 pos = m2.end()
             else:
                 break  # doesn't look like an attribute, give up
+        if add_encoding and ENCODING not in attrs:
+            attrs[ENCODING] = encode(" encoding='%s'" % enc)
         m4 = re.compile(EndDecl).match(xml, pos)
         if m4:
             return (prefix + encode('<?xml') +
-                    attrs.get(VERSION, encode(' version="%s"' % default_version)) +
+                    attrs.get(VERSION, encode(" version='%s'" % default_version)) +
                     (attrs.get(ENCODING) if ENCODING in attrs else '') +
                     (attrs.get(STANDALONE) if STANDALONE in attrs else '') +
                     m4.group(1) + encode('?>') + xml[m4.end():])
@@ -348,6 +370,8 @@ def fix_xmldecl(xml, encoding=None, default_version='1.0'):
                 return xml[:m.start()] + xml[endpos:]  # remove bad decl
             else:
                 return ''  # unterminated, drop entire document (inc. BOM)
+    if unicode_input:
+        xml = xml.decode(enc, 'strict')  # reverse the encoding done earlier
     return xml  # no decl detected
 
 def xhtmlify(html, encoding='UTF-8',
@@ -559,11 +583,19 @@ def xmlparse(snippet):
 
 def sniff_encoding(xml):
     """Detects the XML encoding as per XML 1.0 section F.1."""
-    enc = sniff_bom_encoding(xml)
+    if isinstance(xml, str):
+        xmlstr = xml
+    elif isinstance(xml, basestring):
+        xmlstr = xml.encode('utf-8')
+    else:
+        raise TypeError('Expected a string, got %r' % type(xml))
+    enc = sniff_bom_encoding(xmlstr)
     # Now the fun really starts. We compile the encoded sniffer regexp.
     # We must use an encoder to handle utf_8_sig properly.
     encode = codecs.lookup(enc).incrementalencoder().encode
     prefix = encode('')  # any header such as a UTF-8 BOM
+    if enc in ('utf_16_le', 'utf_16_be'):
+        prefix = u'\ufeff'.encode(enc)  # the standard approach fails
     L = lambda s: re.escape(encode(s))  # encoded form of literal s
     optional = lambda s: '(?:%s)?' % s
     oneof = lambda opts: '(?:%s)' % '|'.join(opts)
@@ -582,8 +614,9 @@ def sniff_encoding(xml):
         Sp, L('version'), Eq, oneof([L("'1.")+digits+L("'"),
                                      L('"1.')+digits+L('"')]) ])
     EncodingDecl = ''.join([
-        Sp, L('encoding'), Eq, '(?P<enc>%s|%s)' % (
-            L("'")+name+L("'"), L('"')+name+L('"')) ])
+        Sp, L('encoding'), Eq, oneof([
+            L("'") + '(?P<enc_dq>%s)' % name + L("'"),
+            L('"') + '(?P<enc_sq>%s)' % name + L('"') ]) ])
     # standalone="yes" is valid XML but almost certainly a lie...
     SDDecl = ''.join([
         Sp, L('standalone'), Eq, oneof([
@@ -593,15 +626,25 @@ def sniff_encoding(xml):
                  optional(SDDecl), Ss, L('?>') ])
     m = re.match(R, xml)
     if m:
-        decl_enc = m.group('enc')[1:-1].decode(enc).encode('ascii')
+        encvalue = m.group('enc_dq')
+        if encvalue is None:
+            encvalue = m.group('enc_sq')
+        decl_enc = encvalue.decode(enc).encode('ascii')
         bom_codec = None
+        def get_codec(encoding):
+            encoding = encoding.lower()
+            if encoding=='ebcdic':
+                encoding = 'cp037'  # good enough
+            elif encoding in ('utf_16_le', 'utf_16_be'):
+                encoding = 'utf_16'
+            return codecs.lookup(encoding)
         try:
-            bom_codec = codecs.lookup(enc)
+            bom_codec = get_codec(enc)
         except LookupError:
             pass  # unknown BOM codec, old version of Python maybe?
         try:
             if (bom_codec and enc==enc.lower() and
-                codecs.lookup(decl_enc)!=bom_codec):
+                get_codec(decl_enc)!=bom_codec):
                     raise ValidationError(
                         "Multiply-specified encoding "
                         "(BOM: %s, XML decl: %s)" % (enc, decl_enc),
@@ -617,6 +660,8 @@ def sniff_bom_encoding(xml):
        If the returned encoding is lowercase it means the BOM uniquely
        identified an encoding, so we don't need to parse the <?xml...?>
        to extract the encoding in theory."""
+    if not isinstance(xml, str):
+        raise TypeError('Expected str, got %r' % type(xml))
     # Warning: The UTF-32 codecs aren't present before Python 2.6...
     # See also http://bugs.python.org/issue1399
     enc = {

@@ -1,7 +1,8 @@
 import re
+import encodings.aliases
 
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
-from strainer.xhtmlify import sniff_encoding
+from strainer.xhtmlify import sniff_encoding, fix_xmldecl
 
 
 def xhtmlify(html):
@@ -701,3 +702,18 @@ def test_sniffer_exc():
         assert str(exc)==e_exc, exc
     else:
         assert False, r
+
+def test_fix_xmldecl():
+    # Slow compared to the other tests, but still only a few seconds.
+    for encoding in encodings.aliases.aliases.values():
+        if encoding in ('rot_13', 'quopri_codec', 'zlib_codec',
+                        'base64_codec', 'uu_codec', 'tactis',
+                        'hex_codec', 'bz2_codec'):
+            continue
+        xmldecl = fix_xmldecl(u'  <?xml>', encoding, add_encoding=True)
+        sniffed = sniff_encoding(xmldecl)
+        assert sniffed==encoding, (xmldecl, encoding, sniffed)
+        xmldecl = fix_xmldecl(u'  <?xml>'.encode(encoding), encoding,
+                              add_encoding=True)
+        sniffed = sniff_encoding(xmldecl)
+        assert sniffed==encoding, (xmldecl, encoding, sniffed)
