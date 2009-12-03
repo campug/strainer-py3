@@ -236,18 +236,27 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     # This code started as a copy of sniff_encoding(), which follows the
     # XML spec.  This version uses a more lenient parser.
     EOS = r'\Z'  # end of string regexp
+    starts_utf16_re = re.compile('utf[_-]?16', re.IGNORECASE)
+    bomless_utf16_re = re.compile('utf[_-]?16[_-]?[bl]e\Z', re.IGNORECASE)
     unicode_input = isinstance(xml, unicode)
     if not re.match(r'1\.[0-9]+' + EOS, default_version):
         raise ValueError("Bad default XML declaration version")
     if encoding is not None:
-        if encoding in encodings.aliases.aliases:  # use the more standard name
-            encoding = encodings.aliases.aliases[encoding]
+        # Use a more standard name for the encoding
+        encoding = encodings.normalize_encoding(encoding)
+        if encoding.lower() in encodings.aliases.aliases:
+            encoding = encodings.aliases.aliases[encoding.lower()]
         if not re.match('[A-Za-z][A-Za-z0-9._-]*' + EOS, encoding):
             raise ValueError("Bad default XML declaration encoding")
-    if encoding == 'utf_16':  # spec says it must start with BOM
-        if isinstance(xml, str) and not xml.startswith(u''.encode('utf_16')):
-            xml = u''.encode('utf_16') + xml
-        # "else: pass"; Python adds the BOM when encoding unicode as UTF-16
+        if starts_utf16_re.match(encoding):
+            # XML spec 4.3.3 says "Entities encoded in UTF-16 MUST [...]
+            # begin with the Byte Order Mark".
+            if not unicode_input and not (xml.startswith(codecs.BOM_UTF16_LE) or
+                                          xml.startswith(codecs.BOM_UTF16_BE)):
+                xml = u'\ufeff'.encode(encoding) + xml
+            elif unicode_input and bomless_utf16_re.match(encoding):
+                xml = u'\ufeff' + xml
+            # "else: pass"; Python adds the BOM when encoding unicode as UTF-16
     if unicode_input:
         if encoding:
             xmlstr = xml.encode(encoding)
@@ -263,8 +272,16 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
         xml = xmlstr
     # We must use an encoder to handle utf_8_sig properly.
     encode = codecs.lookup(enc).incrementalencoder().encode
-    prefix = encode('')
-    assert encode('''axz<?'"[]:()+*>'''*3)==encode('''axz<?'"[]:()+*>''')*3
+    if bomless_utf16_re.match(enc):
+        # These need a BOM prefix according to the spec but the default
+        # Python encodings of that name don't provide one.
+        prefix = encode(u'\ufeff')
+    else:
+        prefix = encode('')
+    chars_we_need = ('''abcdefghijklmnopqrstuvwxyz'''
+                     '''ABCDEFGHIJKLMNOPQRSTUVWXYZ'''
+                     '''0123456789.-_ \t\r\n<?'"[]:()+*>''')
+    assert encode(chars_we_need*3)==encode(chars_we_need)*3, enc
     L = lambda s: re.escape(encode(s))  # encoded form of literal s
     group = lambda s: '(%s)' % s
     optional = lambda s: '(?:%s)?' % s
@@ -665,16 +682,16 @@ def sniff_bom_encoding(xml):
     # Warning: The UTF-32 codecs aren't present before Python 2.6...
     # See also http://bugs.python.org/issue1399
     enc = {
-        '\x00\x00\xFE\xFF': 'utf_32_be', #UCS4 1234
-        '\xFF\xFE\x00\x00': 'utf_32_le', #UCS4 4321
+        '\x00\x00\xFE\xFF': 'utf_32', #UCS4 1234, utf_32_be with BOM
+        '\xFF\xFE\x00\x00': 'utf_32', #UCS4 4321, utf_32_le with BOM
         '\x00\x00\xFF\xFE': 'undefined', #UCS4 2143 (rare, we give up)
         '\xFE\xFF\x00\x00': 'undefined', #UCS4 3412 (rare, we give up)
         '\x00\x00\x00\x3C': 'UTF_32_BE', #UCS4 1234 (no BOM)
         '\x3C\x00\x00\x00': 'UTF_32_LE', #UCS4 4321 (no BOM)
         '\x00\x00\x3C\x00': 'undefined', #UCS4 2143 (no BOM, we give up)
         '\x00\x3C\x00\x00': 'undefined', #UCS4 3412 (no BOM, we give up)
-        '\x00\x3C\x00\x3F': 'UTF_16_BE',
-        '\x3C\x00\x3F\x00': 'UTF_16_LE',
+        '\x00\x3C\x00\x3F': 'UTF_16_BE', # missing BOM
+        '\x3C\x00\x3F\x00': 'UTF_16_LE', # missing BOM
         '\x3C\x3F\x78\x6D': 'ASCII',
         '\x4C\x6F\xA7\x94': 'CP037',  # EBCDIC (unknown code page)
     }.get(xml[:4])

@@ -1,5 +1,6 @@
 import re
 import encodings.aliases
+import codecs
 
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
 from strainer.xhtmlify import sniff_encoding, fix_xmldecl
@@ -711,9 +712,21 @@ def test_fix_xmldecl():
                         'hex_codec', 'bz2_codec'):
             continue
         xmldecl = fix_xmldecl(u'  <?xml>', encoding, add_encoding=True)
+        if encoding.lower().startswith('utf'):
+            if '16' in encoding:
+                if 'le' in encoding.lower():
+                    assert xmldecl.startswith(codecs.BOM_UTF16_LE)
+                if 'be' in encoding.lower():
+                    assert xmldecl.startswith(codecs.BOM_UTF16_BE)
         sniffed = sniff_encoding(xmldecl)
         assert sniffed==encoding, (xmldecl, encoding, sniffed)
         xmldecl = fix_xmldecl(u'  <?xml>'.encode(encoding), encoding,
                               add_encoding=True)
+        if encoding.lower().startswith('utf'):
+            if '16' in encoding:
+                if 'le' in encoding.lower():
+                    assert xmldecl.startswith(codecs.BOM_UTF16_LE)
+                if 'be' in encoding.lower():
+                    assert xmldecl.startswith(codecs.BOM_UTF16_BE)
         sniffed = sniff_encoding(xmldecl)
         assert sniffed==encoding, (xmldecl, encoding, sniffed)
