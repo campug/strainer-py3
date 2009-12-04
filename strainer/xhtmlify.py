@@ -439,7 +439,10 @@ def xhtmlify(html, encoding=None,
     output = result.append
     lastpos = 0
     tag_re = re.compile(TAG_RE, re.DOTALL | re.IGNORECASE)
-    for tag_match in tag_re.finditer(html):
+    pos = 0
+    if html.startswith('<?xml') or html.startswith(u'\ufeff<?xml'):
+        pos = html.find('>')+1
+    for tag_match in tag_re.finditer(html, pos):
         pos = tag_match.start()
         prevtag = tags and tags[-1][0].lower() or None
         innards = tag_match.group(1)
@@ -571,17 +574,27 @@ def test(html=None):
         print xhtml
     return xhtml
 
-def xmlparse(snippet):
+def xmlparse(snippet, encoding=None, wrap=True):
     """Parse snippet as XML without an outer document element
        with ElementTree/expat."""
     import xml.parsers.expat
     from xml.etree import ElementTree as ET
     try:
-        try:
-            parser = ET.XMLParser(encoding='utf-8')
-        except TypeError:
-            parser = ET.XMLParser()  # old version
-        input = '<document>\n%s\n</document>' % snippet
+        if encoding:
+            try:
+                parser = ET.XMLParser(encoding=encoding)
+            except TypeError:
+                parser = ET.XMLParser()  # old version
+        else:
+            parser = ET.XMLParser()  # let it use the standard algorithm
+        if wrap:  # XXX: not safe for non-ascii-ish encoded strs
+            input = '<document>\n%s\n</document>' % snippet
+        else:
+            input = snippet
+        if isinstance(snippet, unicode):
+            if not encoding:
+                encoding = sniff_encoding(snippet)
+            input = input.encode(encoding)
         parser.feed(input)
         parser.close()
     except xml.parsers.expat.ExpatError, e:
@@ -648,6 +661,8 @@ def sniff_encoding(xml):
         encvalue = m.group('enc_dq')
         if encvalue is None:
             encvalue = m.group('enc_sq')
+            if encvalue is None:
+                return enc
         decl_enc = encvalue.decode(enc).encode('ascii')
         bom_codec = None
         def get_codec(encoding):
