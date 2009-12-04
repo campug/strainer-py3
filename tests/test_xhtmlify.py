@@ -6,17 +6,21 @@ from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
 from strainer.xhtmlify import sniff_encoding, fix_xmldecl
 
 
-def xhtmlify(html):
+def xhtmlify(html, *args, **kwargs):
     """Call the real xhtmlify and check it outputs well-formed XML
-       and that it it idempotent (makes no changes when fed its output)."""
-    xhtml = _xhtmlify(html)
+       and that it is idempotent (makes no changes when fed its output)."""
+    _wrap = True
+    if '_wrap' in kwargs:
+        _wrap = kwargs['_wrap']
+        del kwargs['_wrap']
+    xhtml = _xhtmlify(html, *args, **kwargs)
     try:
         # ET can't handle <!...>
         stripped_xhtml = re.sub(r'(?s)<!(?!\[).*?>', '', xhtml)
-        xmlparse(stripped_xhtml)
+        xmlparse(stripped_xhtml, wrap=_wrap)
     except Exception, e:
         assert False, (stripped_xhtml, str(e))
-    assert xhtml == _xhtmlify(xhtml), xhtml
+    assert xhtml == _xhtmlify(xhtml, *args, **kwargs), xhtml
     return xhtml
 
 def test_dont_allow_nesting_ps():
@@ -738,3 +742,11 @@ def test_formfeed_in_xmldecl():
                            '\f\fstandalone=no\f\f?>').encode('utf16'))
     assert xmldecl.decode('utf16')==(
         '''<?xml version="1.0"  standalone='no'  ?>'''), xmldecl
+
+def test_xhtmlify_handles_utf8_xmldecl():
+    result = xhtmlify(u'<?xml><html>', 'utf-8', _wrap=False)
+    assert result.decode('utf-8')==u'<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>'
+
+def test_xhtmlify_handles_utf16_xmldecl():
+    result = xhtmlify(u'<?xml><html>', 'utf_16_be', _wrap=False)
+    assert result.decode('utf16')==u'<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>'
