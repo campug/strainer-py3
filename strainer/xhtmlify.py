@@ -296,8 +296,8 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     punc = charset('._-')
     Name = '(?:%s%s*)' % (oneof([upper, lower]), 
                           oneof([upper, lower, digits, punc]))
-    Ss = charset(' \t\r\n')+'*'  # optional white space
-    Sp = charset(' \t\r\n')+'+'  # required white space
+    Ss = charset(' \t\r\n\f')+'*'  # optional white space (inc. formfeed)
+    Sp = charset(' \t\r\n\f')+'+'  # required white space (inc. formfeed)
     VERSION = encode('version')
     ENCODING = encode('encoding')
     STANDALONE = encode('standalone')
@@ -319,6 +319,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
             m2 = Attr_re.match(xml, pos)
             if m2:
                 wspace, name, eq, dquoted, squoted, unquoted = m2.groups()
+                wspace = wspace.replace(encode('\f'), encode(' '))
                 if dquoted is not None:
                     quotes = encode('"')
                     n = len(quotes)
@@ -376,7 +377,8 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
                     attrs.get(VERSION, encode(" version='%s'" % default_version)) +
                     (attrs.get(ENCODING) if ENCODING in attrs else '') +
                     (attrs.get(STANDALONE) if STANDALONE in attrs else '') +
-                    m4.group(1) + encode('?>') + xml[m4.end():])
+                    m4.group(1).replace(encode('\f'), encode(' ')) +
+                    encode('?>') + xml[m4.end():])
         else:
             m5 = re.compile(oneof([L('>'), L('<')])).search(xml, pos)
             if m5:
@@ -391,7 +393,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
         xml = xml.decode(enc, 'strict')  # reverse the encoding done earlier
     return xml  # no decl detected
 
-def xhtmlify(html, encoding='UTF-8',
+def xhtmlify(html, encoding=None,
                    self_closing_tags=SELF_CLOSING_TAGS,
                    cdata_tags=CDATA_TAGS,
                    structural_tags=STRUCTURAL_TAGS):
@@ -403,7 +405,7 @@ def xhtmlify(html, encoding='UTF-8',
     It is intended to be idempotent, i.e. it should make no changes if fed
     its own output. It accepts XHTML-style self-closing tags.
     """
-    html = fix_xmldecl(html)
+    html = fix_xmldecl(html, encoding=encoding, add_encoding=False)
     if not encoding:
         encoding = sniff_encoding(html)
     unicode_input = isinstance(html, unicode)

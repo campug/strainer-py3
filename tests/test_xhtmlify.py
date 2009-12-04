@@ -730,3 +730,11 @@ def test_fix_xmldecl():
                     assert xmldecl.startswith(codecs.BOM_UTF16_BE)
         sniffed = sniff_encoding(xmldecl)
         assert sniffed==encoding, (xmldecl, encoding, sniffed)
+
+def test_formfeed_in_xmldecl():
+    xmldecl = fix_xmldecl(' \f\t\f\n\f\r\f<?xml>'.encode('utf16'))
+    assert xmldecl.decode('utf16')=="<?xml version='1.0'?>", xmldecl
+    xmldecl = fix_xmldecl((' \f\t\f\n\f\r\f<?xml\fversion="1.0"'
+                           '\f\fstandalone=no\f\f?>').encode('utf16'))
+    assert xmldecl.decode('utf16')==(
+        '''<?xml version="1.0"  standalone='no'  ?>'''), xmldecl
