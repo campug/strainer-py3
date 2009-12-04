@@ -439,10 +439,10 @@ def xhtmlify(html, encoding=None,
     output = result.append
     lastpos = 0
     tag_re = re.compile(TAG_RE, re.DOTALL | re.IGNORECASE)
-    pos = 0
     if html.startswith('<?xml') or html.startswith(u'\ufeff<?xml'):
-        pos = html.find('>')+1
-    for tag_match in tag_re.finditer(html, pos):
+        lastpos = html.find('>')+1
+        output(html[:lastpos])
+    for tag_match in tag_re.finditer(html, lastpos):
         pos = tag_match.start()
         prevtag = tags and tags[-1][0].lower() or None
         innards = tag_match.group(1)
@@ -451,8 +451,11 @@ def xhtmlify(html, encoding=None,
             if whole_tag.startswith('<!'):
                 # CDATA, comment, or doctype-alike. Treat as text.
                 if re.match(r'(?i)<!doctype[ \t\r\n]', whole_tag):
+                    text = html[lastpos:pos]
+                    if re.match(r'[ \t\r\n]*\Z', text):
+                        output(text)
                     output('<!DOCTYPE')
-                    lastpos += 9
+                    lastpos = tag_match.start() + len('<!doctype')
                 continue
             assert whole_tag=='<'
             if prevtag in cdata_tags:
@@ -574,11 +577,16 @@ def test(html=None):
         print xhtml
     return xhtml
 
-def xmlparse(snippet, encoding=None, wrap=True):
-    """Parse snippet as XML without an outer document element
-       with ElementTree/expat."""
+def xmlparse(snippet, encoding=None, wrap=None):
+    """Parse snippet as XML with ElementTree/expat.  By default it wraps the
+       snippet in an outer <document> element before parsing (unless the
+       snippet starts "<?xml" or u"\ufeff<?xml").  This can be suppressed by
+       setting wrap to True or forced by setting wrap to False."""
     import xml.parsers.expat
     from xml.etree import ElementTree as ET
+    if wrap is None:
+        wrap = (not snippet.startswith('<?xml') and
+                not snippet.startswith(u'\ufeff<?xml'))
     try:
         if encoding:
             try:

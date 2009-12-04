@@ -9,7 +9,7 @@ from strainer.xhtmlify import sniff_encoding, fix_xmldecl
 def xhtmlify(html, *args, **kwargs):
     """Call the real xhtmlify and check it outputs well-formed XML
        and that it is idempotent (makes no changes when fed its output)."""
-    _wrap = True
+    _wrap = None
     if '_wrap' in kwargs:
         _wrap = kwargs['_wrap']
         del kwargs['_wrap']
@@ -715,6 +715,10 @@ def test_fix_xmldecl():
                         'base64_codec', 'uu_codec', 'tactis',
                         'hex_codec', 'bz2_codec'):
             continue
+        try:
+            ''.encode(encoding)
+        except LookupError:  # not trying to handle unknown encodings yet
+            continue
         xmldecl = fix_xmldecl(u'  <?xml>', encoding, add_encoding=True)
         if encoding.lower().startswith('utf'):
             if '16' in encoding:
@@ -750,3 +754,18 @@ def test_xhtmlify_handles_utf8_xmldecl():
 def test_xhtmlify_handles_utf16_xmldecl():
     result = xhtmlify(u'<?xml><html>', 'utf_16_be', _wrap=False)
     assert result.decode('utf16')==u'<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>'
+
+def test_doctype():
+    s = r'''<?xml version="1.0" encoding="ISO-8859-1"?>
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html>
+    <head><title>test</title></head><body></body></html>'''
+    e = r'''<?xml version="1.0" encoding="ISO-8859-1"?>
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml">
+    <head><title>test</title></head><body></body></html>'''
+    r = xhtmlify(s)
+    assert r==e, r
+
