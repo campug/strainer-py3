@@ -304,11 +304,12 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     StartDecl = ''.join([prefix, Ss, L('<'), Ss, L('?'), Ss,
                          oneof([L('xml'), L('xmL'), L('xMl'), L('xML'),
                                 L('Xml'), L('XmL'), L('XMl'), L('XML')])])
-    Attr = ''.join([group(Sp), group(Name), Ss, group(L('=')), Ss, oneof([
-        group(L('"')+all_until(oneof([L('"'), L('<'), L('>')]))+L('"')),
-        group(L("'")+all_until(oneof([L("'"), L('<'), L('>')]))+L("'")),
-        group(all_until(oneof([Sp, L('?'), L('<'), L('>')]))),
-    ]) ])
+    Attr = ''.join([group(Sp), group(Name), group(''.join([Ss, L('='), Ss])),
+        oneof([
+            group(L('"')+all_until(oneof([L('"'), L('<'), L('>')]))+L('"')),
+            group(L("'")+all_until(oneof([L("'"), L('<'), L('>')]))+L("'")),
+            group(all_until(oneof([Sp, L('?'), L('<'), L('>')]))),
+        ]) ])
     Attr_re = re.compile(Attr, re.DOTALL)
     EndDecl = ''.join([group(Ss), oneof([''.join([L('?'), Ss, L('>')]), L('>')])])
     m = re.match(StartDecl, xml)
@@ -574,7 +575,7 @@ def test(html=None):
         raise
     xmlparse(re.sub('(?s)<!(?!\[).*?>', '', xhtml))  # ET can't handle <!...>
     if len(sys.argv)==2:
-        print xhtml
+        sys.stdout.write(xhtml)
     return xhtml
 
 def xmlparse(snippet, encoding=None, wrap=None):
