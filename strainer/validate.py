@@ -5,27 +5,11 @@ import re
 import urlparse
 
 from pkg_resources import resource_string
+from strainer.doctypes import *
 
 
-__all__ = [
-    'validate_xhtml',
-    'validate_xhtml_fragment',
-    'XHTMLSyntaxError',
-    'DOCTYPE_XHTML1_STRICT',
-    'DOCTYPE_XHTML1_TRANSITIONAL',
-    'DOCTYPE_XHTML1_FRAMESET',
-#    'DEFAULT_XHTML_TEMPLATE',
-]
+__all__ = ['validate_xhtml', 'validate_xhtml_fragment', 'XHTMLSyntaxError']
 
-DOCTYPE_XHTML1_STRICT = (
-    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" '
-    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n')
-DOCTYPE_XHTML1_TRANSITIONAL = (
-   '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
-   '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n')
-DOCTYPE_XHTML1_FRAMESET = (
-    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN" '
-    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">\n')
 
 DEFAULT_XHTML_TEMPLATE = ('<html><head><title/></head><body><div>\n'
                           '%s</div></body></html>')
