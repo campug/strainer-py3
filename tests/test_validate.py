@@ -1,4 +1,6 @@
 from strainer.validate import *
+from strainer.doctypes import DOCTYPE_XHTML1_STRICT
+
 
 def test_validate_xhtml():
     validate_xhtml(DOCTYPE_XHTML1_STRICT +
