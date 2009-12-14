@@ -29,6 +29,7 @@ class LogCaptureHandler(logging.Handler):
 
 
 def test_xhtml_validator_middleware():
+    """This test is expected to fail if lxml isn't available."""
     STRICT = DOCTYPE_XHTML1_STRICT
     tests = [
         ('<html>\n<body>\nHello World!\n</body>\n</html>',
@@ -58,6 +59,7 @@ def test_xhtml_validator_middleware():
         assert errors==e
 
 def test_xhtml_validator_middleware_logging():
+    """This test is expected to fail if lxml isn't available."""
     log = logging.getLogger('strainer.middleware')
     errors = []
     log.addHandler(LogCaptureHandler(errors))
