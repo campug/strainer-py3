@@ -38,6 +38,7 @@ class BufferingMiddleware(object):
         output.close()
         status, headers, exc_info = start_response_args[0]
         filtered_response = self.filter(status, headers, exc_info, response)
+        start_response(*start_response_args[0])
         return [filtered_response]
 
     def filter(self, status, headers, exc_info, response):
