@@ -1,4 +1,6 @@
 """Provides WSGI middleware for validating and tidying HTML output."""
+import re
+import xhtmlify
 import logging
 try:
     from cStringIO import StringIO
@@ -6,7 +8,7 @@ except ImportError:
     from StringIO import StringIO
 
 
-__all__ = ['XHTMLValidatorMiddleware']
+__all__ = ['XHTMLValidatorMiddleware', 'XHTMLifyMiddleware']
 
 
 LOG = logging.getLogger('strainer.middleware')
@@ -68,3 +70,21 @@ try:
 except ImportError:
     pass  # no lxml, no XHTMLValidatorMiddleware, sorry.
 
+
+class XHTMLifyMiddleware(BufferingMiddleware):
+    def filter(self, status, headers, exc_info, response):
+        content_type = get_content_type(headers)
+        parts = content_type.split(';', 1)
+        if len(parts)==2:
+            content_type, rest = parts
+        else:
+            rest = ''
+        encoding = re.search(
+            r"""charset\s*=\s*("[A-Za-z0-9_-]*"|"""
+                           r"""'[A-Za-z0-9_-]*'|"""
+                           r"""[A-Za-z0-9_-]*)""", rest)
+        if encoding:
+            encoding = encoding.group(1).replace('"', '').replace("'", '')
+        if content_type.strip() in ('text/html', 'application/xml+html'):
+            response = xhtmlify.xhtmlify(response, encoding=encoding)
+        return response

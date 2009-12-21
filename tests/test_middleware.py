@@ -1,4 +1,5 @@
 import logging
+from strainer.middleware import XHTMLifyMiddleware
 try:
     from strainer.middleware import XHTMLValidatorMiddleware
 except ImportError:
@@ -68,3 +69,8 @@ def test_xhtml_validator_middleware_logging():
     assert response==['<html>'], repr(response)
     assert errors==['Validation failed: no DTD found !, line 1, column 6']
 
+def test_xhtmlify_middleware_runs():
+    """This test is expected to fail if lxml isn't available."""
+    app = XHTMLifyMiddleware(FakeWSGIApp('<html>'))
+    response = app({}, fake_start_response)
+    assert response==['<html xmlns="http://www.w3.org/1999/xhtml"></html>']
