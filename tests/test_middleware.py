@@ -16,7 +16,7 @@ class FakeWSGIApp(object):
         start_response('200 OK',[('Content-type','text/html')])
         return [self.response]
 
-def fake_start_response(status, headers):
+def fake_start_response(status, headers, exc_info=None):
     pass
 
 class LogCaptureHandler(logging.Handler):
