@@ -36,9 +36,9 @@ class BufferingMiddleware(object):
             app_iter.close()
         response = output.getvalue()
         output.close()
-        status, headers, exc_info = start_response_args[0]
+        status, headers, exc_info = start_response_args[-1]
         filtered_response = self.filter(status, headers, exc_info, response)
-        start_response(*start_response_args[0])
+        start_response(*start_response_args[-1])
         return [filtered_response]
 
     def filter(self, status, headers, exc_info, response):
