@@ -52,10 +52,11 @@ try:
     from validate import validate_xhtml, XHTMLSyntaxError
 
     class XHTMLValidatorMiddleware(BufferingMiddleware):
-        def __init__(self, app, record_error=LOG.error):
+        def __init__(self, app, doctype='', record_error=LOG.error):
             """The middleware will output XHTML validation error messages
                by calling record_error(message)."""
             super(XHTMLValidatorMiddleware, self).__init__(app)
+            self.doctype = doctype
             self.record_error = record_error
 
         def filter(self, status, headers, exc_info, response):
@@ -63,7 +64,7 @@ try:
             content_type = content_type.split(';')[0].strip()
             if content_type in ('text/html', 'application/xml+html'):
                 try:
-                    validate_xhtml(response)
+                    validate_xhtml(response, doctype=self.doctype)
                 except XHTMLSyntaxError, e:
                     self.record_error(str(e))
             return response
@@ -87,4 +88,28 @@ class XHTMLifyMiddleware(BufferingMiddleware):
             encoding = encoding.group(1).replace('"', '').replace("'", '')
         if content_type.strip() in ('text/html', 'application/xml+html'):
             response = xhtmlify.xhtmlify(response, encoding=encoding)
+        return response
+
+
+from wellformed import is_wellformed_xhtml
+
+class XHTMLWellformednessCheckerMiddleware(BufferingMiddleware):
+    """Checks that served webpages are well-formed (X)HTML.  This is
+       mainly just a check for correct entities, tag structure and nesting,
+       no DTD checking is done.  Failures are logged by calling the
+       record_error which was passed to the constructor.  By default this
+       logs to the "strainer.middleware" channel using the standard logging
+       module.
+    """
+    def __init__(self, app, record_error=LOG.error):
+        """The middleware will output XHTML wellformedness error messages
+           by calling record_error(message)."""
+        super(XHTMLWellformednessCheckerMiddleware, self).__init__(app)
+        self.record_error = record_error
+
+    def filter(self, status, headers, exc_info, response):
+        content_type = get_content_type(headers)
+        content_type = content_type.split(';')[0].strip()
+        if content_type in ('text/html', 'application/xml+html'):
+            is_wellformed_xhtml(response, record_error=self.record_error)
         return response
