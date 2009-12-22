@@ -1,5 +1,6 @@
 import logging
 from strainer.middleware import XHTMLifyMiddleware
+from strainer.middleware import XHTMLWellformednessCheckerMiddleware
 try:
     from strainer.middleware import XHTMLValidatorMiddleware
 except ImportError:
@@ -70,7 +71,48 @@ def test_xhtml_validator_middleware_logging():
     assert errors==['Validation failed: no DTD found !, line 1, column 6']
 
 def test_xhtmlify_middleware_runs():
-    """This test is expected to fail if lxml isn't available."""
     app = XHTMLifyMiddleware(FakeWSGIApp('<html>'))
     response = app({}, fake_start_response)
     assert response==['<html xmlns="http://www.w3.org/1999/xhtml"></html>']
+
+def test_xhtmlify_middleware_output_is_validatable():
+    """This test is expected to fail if lxml isn't available."""
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = XHTMLifyMiddleware(FakeWSGIApp('<html>'))
+    app2 = XHTMLValidatorMiddleware(app, doctype=DOCTYPE_XHTML1_STRICT)
+    response = app2({}, fake_start_response)
+    assert response==['<html xmlns="http://www.w3.org/1999/xhtml"></html>']
+    assert errors==['Element html content does not follow the DTD, '
+                    'expecting (head , body), got , line 1, column 15']
+
+def test_xhtmlify_middleware_output_is_wellformed():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = XHTMLifyMiddleware(FakeWSGIApp('<html>'))
+    app = XHTMLWellformednessCheckerMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['<html xmlns="http://www.w3.org/1999/xhtml"></html>']
+    assert errors==[]
+
+def test_xhtml_wellformedness_checker_runs():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = FakeWSGIApp('<html><body></html>')
+    app = XHTMLWellformednessCheckerMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['<html><body></html>']
+    assert errors==['line 1, column 15: mismatched tag']
+
+def test_xhtml_wellformedness_checker_detects_unknown_entities():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = FakeWSGIApp('<html>\n&lt;&euro;&snort;</html>')
+    app = XHTMLWellformednessCheckerMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['<html>\n&lt;&euro;&snort;</html>']
+    assert errors==['line 2, column 11: Unknown entity reference']

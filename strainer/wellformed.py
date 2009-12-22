@@ -3,7 +3,7 @@ import xml.sax
 import xml.sax.handler
 import htmlentitydefs
 
-from xml.sax._exceptions import SAXException
+from xml.sax._exceptions import SAXParseException
 
 
 __all__ = ['is_wellformed_xml', 'is_wellformed_xhtml']
@@ -13,18 +13,23 @@ DOCTYPE_XHTML1_STRICT = (
     '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
 
 
-def is_wellformed_xhtml(docpart):
+def is_wellformed_xhtml(docpart, record_error=None):
     """Calls is_wellformed_xml with doctype=DOCTYPE_XHTML1_STRICT
        and entitydefs=htmlentitydefs.entitydefs."""
     return is_wellformed_xml(docpart, doctype=DOCTYPE_XHTML1_STRICT,
-                             entitydefs=htmlentitydefs.entitydefs)
+                             entitydefs=htmlentitydefs.entitydefs,
+                             record_error=record_error)
 
-def is_wellformed_xml(docpart, doctype='', entitydefs={}):
+def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
     """Prefixes doctype to docpart and parses the resulting string.
        Returns True if it parses as XML without error. If entitydefs
        is given, checks that all named entity references are keys
        in entitydefs. Does not check against the external DTD declared
        in the doctype.
+
+       If record_error is not None, it is called with the text of the
+       first error message found if there is one (that is, if this function
+       will return False).
     """
     doc = doctype + docpart
     parser = xml.sax.make_parser()
@@ -34,14 +39,22 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}):
         class Handler(xml.sax.handler.ContentHandler):
             def skippedEntity(self, name):
                 if name not in entitydefs:
-                    raise SAXException(name, None) # we catch this
+                    raise SAXParseException('Unknown entity reference', None, parser)
         h = Handler()
         parser.setContentHandler(h)
     try:
         parser.feed(doc)
         parser.close()
         return True
-    except SAXException:  # catches our exception and other parse errors
+    except SAXParseException, e:  # catches our exception and other parse errors
+        if record_error is not None:
+            line, column = e.getLineNumber(), e.getColumnNumber()
+            # Correct location to account for our adding a doctype prefix.
+            line -= doctype.count('\n')
+            if line == 1:
+                column -= len(doctype) - (doctype.rfind('\n') + 1)
+            # Convert column to 1-based indexing
+            record_error('line %d, column %d: %s' % (line, column+1, e.message))
         return False
 
 def test():
