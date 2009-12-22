@@ -1,6 +1,6 @@
 import logging
 from strainer.middleware import XHTMLifyMiddleware
-from strainer.middleware import XHTMLWellformednessCheckerMiddleware
+from strainer.middleware import WellformednessCheckerMiddleware
 try:
     from strainer.middleware import XHTMLValidatorMiddleware
 except ImportError:
@@ -12,11 +12,16 @@ from strainer.doctypes import DOCTYPE_XHTML1_STRICT
 # Mocks and other test detritus
 
 class FakeWSGIApp(object):
-    def __init__(self, response):
+    def __init__(self, response,
+                 status='200 OK', headers=[('Content-type','text/html')]):
         self.response = response
+        self.status = status
+        self.headers = headers
+
     def __call__(self, environ, start_response):
-        start_response('200 OK',[('Content-type','text/html')])
+        start_response(self.status, self.headers)
         return [self.response]
+
 
 def fake_start_response(status, headers, exc_info=None):
     pass
@@ -92,27 +97,48 @@ def test_xhtmlify_middleware_output_is_wellformed():
     errors = []
     log.addHandler(LogCaptureHandler(errors))
     app = XHTMLifyMiddleware(FakeWSGIApp('<html>'))
-    app = XHTMLWellformednessCheckerMiddleware(app)
+    app = WellformednessCheckerMiddleware(app)
     response = app({}, fake_start_response)
     assert response==['<html xmlns="http://www.w3.org/1999/xhtml"></html>']
     assert errors==[]
 
-def test_xhtml_wellformedness_checker_runs():
+def test_wellformedness_checker_runs():
     log = logging.getLogger('strainer.middleware')
     errors = []
     log.addHandler(LogCaptureHandler(errors))
     app = FakeWSGIApp('<html><body></html>')
-    app = XHTMLWellformednessCheckerMiddleware(app)
+    app = WellformednessCheckerMiddleware(app)
     response = app({}, fake_start_response)
     assert response==['<html><body></html>']
     assert errors==['line 1, column 15: mismatched tag']
 
-def test_xhtml_wellformedness_checker_detects_unknown_entities():
+def test_wellformedness_checker_detects_unknown_entities():
     log = logging.getLogger('strainer.middleware')
     errors = []
     log.addHandler(LogCaptureHandler(errors))
     app = FakeWSGIApp('<html>\n&lt;&euro;&snort;</html>')
-    app = XHTMLWellformednessCheckerMiddleware(app)
+    app = WellformednessCheckerMiddleware(app)
     response = app({}, fake_start_response)
     assert response==['<html>\n&lt;&euro;&snort;</html>']
-    assert errors==['line 2, column 11: Unknown entity reference']
+    assert errors==['line 2, column 11: undefined entity']
+
+def test_wellformedness_checker_detects_unknown_entities():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = FakeWSGIApp('<html>\n&lt;&euro;&snort;</html>')
+    app = WellformednessCheckerMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['<html>\n&lt;&euro;&snort;</html>']
+    assert errors==['line 2, column 11: undefined entity']
+
+def test_wellformedness_checker_detects_xhtml_entities_in_xml():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = FakeWSGIApp('<html>\n&lt;&euro;</html>',
+                      headers=[('Content-Type', 'application/xml')])
+    app = WellformednessCheckerMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['<html>\n&lt;&euro;</html>']
+    assert errors==['line 2, column 5: undefined entity']

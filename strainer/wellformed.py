@@ -39,7 +39,8 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
         class Handler(xml.sax.handler.ContentHandler):
             def skippedEntity(self, name):
                 if name not in entitydefs:
-                    raise SAXParseException('Unknown entity reference', None, parser)
+                    # Emit the same exception as the default XML parser would
+                    raise SAXParseException('undefined entity', None, parser)
         h = Handler()
         parser.setContentHandler(h)
     try:

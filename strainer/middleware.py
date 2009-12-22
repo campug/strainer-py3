@@ -91,20 +91,22 @@ class XHTMLifyMiddleware(BufferingMiddleware):
         return response
 
 
-from wellformed import is_wellformed_xhtml
+from wellformed import is_wellformed_xhtml, is_wellformed_xml
 
-class XHTMLWellformednessCheckerMiddleware(BufferingMiddleware):
-    """Checks that served webpages are well-formed (X)HTML.  This is
-       mainly just a check for correct entities, tag structure and nesting,
-       no DTD checking is done.  Failures are logged by calling the
+class WellformednessCheckerMiddleware(BufferingMiddleware):
+    """Checks that served webpages are well-formed HTML/XHTML/XML,
+       according to the Content-Type header.
+
+       This is mainly just a check for correct entities, tag structure and
+       nesting, no DTD checking is done.  Failures are logged by calling the
        record_error which was passed to the constructor.  By default this
        logs to the "strainer.middleware" channel using the standard logging
        module.
     """
     def __init__(self, app, record_error=LOG.error):
-        """The middleware will output XHTML wellformedness error messages
-           by calling record_error(message)."""
-        super(XHTMLWellformednessCheckerMiddleware, self).__init__(app)
+        """The middleware will output HTML/XHTML/XML wellformedness
+           error messages by calling record_error(message)."""
+        super(WellformednessCheckerMiddleware, self).__init__(app)
         self.record_error = record_error
 
     def filter(self, status, headers, exc_info, response):
@@ -112,4 +114,6 @@ class XHTMLWellformednessCheckerMiddleware(BufferingMiddleware):
         content_type = content_type.split(';')[0].strip()
         if content_type in ('text/html', 'application/xml+html'):
             is_wellformed_xhtml(response, record_error=self.record_error)
+        elif content_type.split('+')[0]=='application/xml':
+            is_wellformed_xml(response, record_error=self.record_error)
         return response
