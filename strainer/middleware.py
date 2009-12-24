@@ -8,7 +8,8 @@ except ImportError:
     from StringIO import StringIO
 
 
-__all__ = ['XHTMLValidatorMiddleware', 'XHTMLifyMiddleware']
+__all__ = ['XHTMLValidatorMiddleware', 'XHTMLifyMiddleware',
+           'WellformednessCheckerMiddleware']
 
 
 LOG = logging.getLogger('strainer.middleware')
