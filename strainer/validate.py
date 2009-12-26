@@ -4,17 +4,29 @@ import os
 import re
 import urlparse
 
+try:
+    import demjson as json  # most accurate JSON validator AFAIK
+except ImportError:
+    try:
+        import simplejson as json
+    except ImportError:
+        import json
+
 from pkg_resources import resource_string
 from strainer.doctypes import *
 
 
-__all__ = ['validate_xhtml', 'validate_xhtml_fragment', 'XHTMLSyntaxError']
+__all__ = ['validate_xhtml', 'validate_xhtml_fragment', 'XHTMLSyntaxError',
+           'validate_json', 'JSONSyntaxError']
 
 
 DEFAULT_XHTML_TEMPLATE = ('<html><head><title/></head><body><div>\n'
                           '%s</div></body></html>')
 
-class XHTMLSyntaxError(RuntimeError):
+class XHTMLSyntaxError(ValueError):
+    pass
+
+class JSONSyntaxError(ValueError):
     pass
 
 _parser = None
@@ -80,3 +92,10 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
                          lambda m: 'line %s' % (int(m.group(1))-tline),
                          e.message)
         raise XHTMLSyntaxError(message)
+
+def validate_json(jsonstr):
+    """Validates that json is a valid JSON string (by loading it)."""
+    try:
+        json.loads(jsonstr)
+    except ValueError, e:
+        raise JSONSyntaxError(str(e))

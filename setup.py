@@ -31,6 +31,11 @@ use XHTMLValidatorMiddleware instead, with code such as::
     >>> from strainer.middleware import XHTMLValidatorMiddleware
     >>> app = XHTMLValidatorMiddleware(app)
 
+To add JSON validation to your WSGI app::
+
+    >>> from strainer.middleware import JSONValidatorMiddleware
+    >>> app = JSONValidatorMiddleware(app)
+
 If your web framework doesn't provide an alternative handler for the error 
 messages that are logged to the "strainer.middleware" channel, you can have 
 them printed to sys.stderr with::
@@ -50,6 +55,7 @@ As with all (or at least most) WSGI middleware, you can also combine them::
 
     >>> app = XHTMLifyMiddleware(app)
     >>> app = XHTMLValidatorMiddleware(app)
+    >>> app = JSONValidatorMiddleware(app)
 
 The middleware in this package buffer the output internally (this violates
 the PEP 333 specification, patches appreciated), so it is best to use them

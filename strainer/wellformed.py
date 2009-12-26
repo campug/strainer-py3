@@ -28,7 +28,7 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
        in the doctype.
 
        If record_error is not None, it is called with the text of the
-       first error message found if there is one (that is, if this function
+       first error message if there is one (that is, if this function
        will return False).
     """
     doc = doctype + docpart
