@@ -58,8 +58,8 @@ As with all (or at least most) WSGI middleware, you can also combine them::
     >>> app = JSONValidatorMiddleware(app)
 
 The middleware in this package buffer the output internally (this violates
-the PEP 333 specification, patches appreciated), so it is best to use them
-near the top of the middleware stack.
+the PEP 333 specification, but it seems unavoidable), so it is best to use 
+them near the top of the middleware stack.
 """,
       classifiers=[], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
       keywords='html xhtml json wsgi',
