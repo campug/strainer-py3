@@ -1,6 +1,7 @@
 import logging
 from strainer.middleware import XHTMLifyMiddleware
 from strainer.middleware import WellformednessCheckerMiddleware
+from strainer.middleware import JSONValidatorMiddleware
 try:
     from strainer.middleware import XHTMLValidatorMiddleware
 except ImportError:
@@ -142,3 +143,23 @@ def test_wellformedness_checker_detects_xhtml_entities_in_xml():
     response = app({}, fake_start_response)
     assert response==['<html>\n&lt;&euro;</html>']
     assert errors==['line 2, column 5: undefined entity']
+
+def test_json_validator_middleware_runs():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = FakeWSGIApp('[1, 2, 3]', headers=[('Content-Type', 'text/json')])
+    app = JSONValidatorMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['[1, 2, 3]']
+    assert errors==[]
+
+def test_json_validator_middleware_detects_errors():
+    log = logging.getLogger('strainer.middleware')
+    errors = []
+    log.addHandler(LogCaptureHandler(errors))
+    app = FakeWSGIApp('[1, 2, 3', headers=[('Content-Type', 'text/json')])
+    app = JSONValidatorMiddleware(app)
+    response = app({}, fake_start_response)
+    assert response==['[1, 2, 3']
+    assert len(errors)==1  # ~= ['Expecting object: line 1 column 7 (char 7)']

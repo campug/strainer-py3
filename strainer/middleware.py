@@ -9,7 +9,7 @@ except ImportError:
 
 
 __all__ = ['XHTMLValidatorMiddleware', 'XHTMLifyMiddleware',
-           'WellformednessCheckerMiddleware']
+           'WellformednessCheckerMiddleware', 'JSONValidatorMiddleware']
 
 
 LOG = logging.getLogger('strainer.middleware')
@@ -117,4 +117,23 @@ class WellformednessCheckerMiddleware(BufferingMiddleware):
             is_wellformed_xhtml(response, record_error=self.record_error)
         elif content_type.split('+')[0]=='application/xml':
             is_wellformed_xml(response, record_error=self.record_error)
+        return response
+
+from validate import validate_json, JSONSyntaxError
+
+class JSONValidatorMiddleware(BufferingMiddleware):
+    def __init__(self, app, doctype='', record_error=LOG.error):
+        """The middleware will output JSON validation error messages
+           by calling record_error(message)."""
+        super(JSONValidatorMiddleware, self).__init__(app)
+        self.record_error = record_error
+
+    def filter(self, status, headers, exc_info, response):
+        content_type = get_content_type(headers)
+        content_type = content_type.split(';')[0].strip()
+        if content_type=='text/json':
+            try:
+                validate_json(response)
+            except JSONSyntaxError, e:
+                self.record_error(str(e))
         return response
