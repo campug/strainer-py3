@@ -467,16 +467,14 @@ def xhtmlify(html, encoding=None,
             ERROR("Empty tag")
         text = html[lastpos:pos]
         if prevtag in cdata_tags:
+            m = re.match(r'/(%s)[ \t\r\n]*\Z' % NAME_RE, innards)
+            if not m or m.group(1).lower()!=prevtag:
+                continue  # not the closing tag we need, keep treating as text
             output(cdatafix(text))
         else:
             output(ampfix(text))
         m = re.compile(INNARDS_RE, re.DOTALL).match(innards)
-        if prevtag in cdata_tags and (not m.group(3) or
-            re.match(r'/(%s)' % NAME_RE, innards).group(1).lower()!=prevtag):
-            # not the closing tag, output it as CDATA
-            output('<![CDATA[%s]]>' % tag_match.group()
-                                        .replace(']]>', ']]]]><![CDATA[>'))
-        elif m.group(1): # opening tag
+        if m.group(1): # opening tag
             endslash = m.group(2)
             m = re.match(NAME_RE, innards)
             TagName, attrs = m.group(), innards[m.end():]
@@ -544,7 +542,11 @@ def xhtmlify(html, encoding=None,
             # We don't do any validation on pre-processing tags (<? ... >).
             output(ampfix(tag_match.group()))
         lastpos = tag_match.end()
-    output(ampfix(html[lastpos:]))
+    prevtag = tags and tags[-1][0].lower() or None
+    if prevtag in cdata_tags:
+        output(cdatafix(html[lastpos:]))
+    else:
+        output(ampfix(html[lastpos:]))
     while tags:
         TagName, pos = tags.pop()
         tagname = TagName.lower()

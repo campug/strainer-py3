@@ -533,6 +533,66 @@ def test_script_cdata_end_script_end_cdata_end_script():
     else:
         assert r==e, r
 
+def test_script_cdata_unexpected_cdata_end_in_dquote_string():
+    s = r'<script>"<]]>"</script>'
+    e = r'<script>"\x%02x]]\x%02x"</script>' % (ord('<'), ord('>'))
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_unexpected_tag_gets_escaped():
+    s = r'<script><evil></script>'
+    e = r'<script>/*<![CDATA[*/ < /*]]>*/evil/*<![CDATA[*/ > /*]]>*/</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_unexpected_tag_in_dqstring():
+    s = r'<script>document.write("<b>");</script>'
+    e = r'<script>document.write("\x3cb\x3e");</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_unexpected_tag_in_sqstring():
+    s = r"<script>document.write('<b>');</script>"
+    e = r"<script>document.write('\x3cb\x3e');</script>"
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_unexpected_tag_in_block_comment():
+    s = r"<script>/* <evil> */</script>"
+    e = r"<script>/* <![CDATA[<]]>evil<![CDATA[>]]> */</script>"
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_unexpected_eof_escapes_contained_tags():
+    s = r'<script><evil>'
+    e = r'<script>/*<![CDATA[*/ < /*]]>*/evil/*<![CDATA[*/ > /*]]>*/</script>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_space_before_tag_name():
     s = r"< p>"
     e_exc = 'Malformed tag at line 1, column 1 (char 1)'
