@@ -212,17 +212,20 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
         raise ValidationError('Bad version in XML declaration',
                               0, 1, 1, [])
     encodingdecl = ''
-    if encoding:
-        if re.match(r'[A-Za-z][A-Za-z0-9._-]*\Z', encoding):
+    if encoding is not None:
+        EncName_re = re.compile(r'[A-Za-z][A-Za-z0-9._-]*\Z')  # from XML spec
+        if isinstance(encoding, basestring) and EncName_re.match(encoding):
             encodingdecl = ' encoding="%s"' % encoding
         else:
             # Don't tell them expected format, guessing won't help
             raise ValidationError('Bad encoding name in XML declaration',
                                   0, 1, 1, [])
     sddecl = ''
-    if standalone:
-        if re.match('(?:yes|no)\Z', standalone):
-            sddecl = ' standalone="%s"' % standalone
+    if standalone is not None:
+        if standalone is True or standalone=='yes':
+            sddecl = ' standalone="yes"'
+        elif standalone is False or standalone=='no':
+            sddecl = ' standalone="no"'
         else:
             # Don't tell them expected format, guessing won't help
             raise ValidationError('Bad standalone value in XML declaration',
