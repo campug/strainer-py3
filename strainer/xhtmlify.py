@@ -421,10 +421,16 @@ def xhtmlify(html, encoding=None,
     # "in HTML, the Formfeed character (U+000C) is treated as white space"
     html = html.replace(u'\u000C', u' ')
     # Replace disallowed characters with U+FFFD (unicode replacement char)
-    html = re.sub(  # XML 1.0 section 2.2, "Char" production
-        u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD]',
-        #XXX: FIXME: [^\U00010000-\U0010FFFF] doesn't work, what to do?
-        u'\N{replacement character}', html)
+    if len(u'\U00010000')==1:
+        html = re.sub(  # XML 1.0 section 2.2, "Char" production
+            u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD'
+              u'\U00010000-\U0010FFFF]',  # <-- 32 bit characters
+            u'\N{replacement character}', html)
+    else:
+        # Replace 32-bit characters, this Python build doesn't support them
+        html = re.sub(  # XML 1.0 section 2.2, "Char" production
+            u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD]',
+            u'\N{replacement character}', html)
 
     def ERROR(message, charpos=None):
         if charpos is None:
