@@ -2,6 +2,8 @@ from xhtmlify import xhtmlify, ValidationError
 from xml.etree import ElementTree as etree
 from xml.parsers.expat import ExpatError
 import copy, re
+from pprint import pformat, pprint
+from simplejson import loads
 from nose.tools import *
 
 def remove_whitespace_nodes(node):
@@ -138,11 +140,11 @@ def _eq_dict(ca, cb, ignore=None):
 
 def eq_dict(a, b, ignore=None):
     #Make a copy as our search for ignored values is destructive
-    ca = deepcopy(a)
-    cb = deepcopy(b)
+    ca = copy.deepcopy(a)
+    cb = copy.deepcopy(b)
                 
     _eq_dict(ca, cb, ignore=ignore)
-    
+
 def eq_json(a, b):
     if isinstance(a, basestring):
         a = loads(a)
