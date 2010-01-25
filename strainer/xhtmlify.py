@@ -12,7 +12,8 @@ NAME_RE = r'(?:[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?)'
 BAD_ATTR_RE = r'''[^> \t\r\n]+'''
 ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
-COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
+#COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
+COMMENT_RE = r'<!--.*?-->'
 TAG_RE = r'''%s|%s|<((?:[^<>'"]+|'[^']*'|"[^"]*"|'|")*)>|<''' % (COMMENT_RE, CDATA_RE)
 INNARDS_RE = r'(%s(?:[ \t\r\n]+%s)*[ \t\r\n]*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
                  NAME_RE, ATTR_RE, NAME_RE)
@@ -397,6 +398,136 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
         xml = xml.decode(enc, 'strict')  # reverse the encoding done earlier
     return xml  # no decl detected
 
+def fix_doctype(html):
+    """\
+    Searches for a doctype declaration at the start of html, after any
+    XML declaration and white-space, and makes sure its syntax matches
+    the "doctypedecl" rule in the XML spec, with a few minor exceptions
+    (we disallow '<' and '>' in PUBLIC identifiers, allow any
+    combination of plausible characters for ELEMENT grammar rules,
+    and disallow nested comments and processing instructions).
+    Returns (fixed_doctype, index) where fixed_doctype is a fixed
+    version of everything up to the end of the doctype and index is the
+    position within html of the end of the doctype (so html[index:]
+    can be processed including positions relative to the original input).
+    """
+    # This is a conversion of the grammar in the XML spec.
+    # If you've never seen a description of what's allowed in the doctype,
+    # try to read this code.  They were clearly bonkers.
+    S = '[ \t\r\n]+'
+    Ss = '[ \t\r\n]*'  # S?
+    opt = lambda *args: '(?:%s)?' % '|'.join(args)
+    oneof = lambda *args: '(?:%s)' % '|'.join(args)
+    any = lambda *args: '(?:%s)*' % '|'.join(args)
+    some = lambda *args: '(?:%s)+' % '|'.join(args)
+    named = lambda name, regexp: '(?P<%s>%s)' % (name, regexp)
+    NameStartChar = (u'[:A-Z_a-z\xC0-\xD6\xD8-\xF6\u00F8-\u02FF\u0370-\u037D'
+                     u'\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF'
+                     u'\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]')
+    if len(u'\U00010000')==1:
+        NameStartChar = NameStartChar[:-1] + u'\U00010000-\U000EFFFF]'
+    NameChar = NameStartChar[:-1] + u"0-9\xB7\u0300-\u036F\u203F-\u2040\-]"
+    Name = NameStartChar + any(NameChar)
+    Nmtoken = some(NameChar)
+    quoted = oneof('"[^<>"]*"', "'[^<>']*'")
+    SystemLiteral = quoted  # XML spec allows < and > here, but that's silly.
+    PubidLiteral = oneof('"[-\ \r\na-zA-Z0-9()+,./:=?;!*#@$_%\']*"',
+                         "'[-\ \r\na-zA-Z0-9()+,./:=?;!*#@$_%]*'")
+    ExternalID = oneof('SYSTEM' + S + SystemLiteral,
+                       'PUBLIC' + S + quoted  # PubidLiteral
+                                + S + SystemLiteral)
+    Mixed = oneof(r'\(' + Ss + '#PCDATA' + any(Ss + r'\|' + Ss + Name)
+                        + r'\)\*',
+                  r'\(' + Ss + '#PCDATA' + Ss + r'\)')  # yuck.
+    # Replacing this recursive grammar...
+    #choice = r'\(' + Ss + cp + some(Ss + r'\|' + Ss + cp) + Ss + r'\)'
+    #seq    = r'\(' + Ss + cp + any(Ss + r'\,' + Ss + cp) + Ss + r'\)'
+    #cp = oneof(Name, choice, seq) + '[?*+]?'
+    #children = oneof(choice, seq) + '[?*+]?'
+    # with the simpler but more lenient line:
+    children = some(Name, '[?*+|,()]', S)
+    contentspec = oneof('EMPTY', 'ANY', Mixed, children)
+    elementdecl = ('<!' + Ss + 'ELEMENT' + S + Name + S +
+                   contentspec + Ss + '>')
+    NotationType = ('NOTATION' + S + r'\(' + Ss + Name +
+                    any(Ss + r'\|' + Ss + Name) + Ss + r'\)')
+    Enumeration = (r'\(' + Ss + Nmtoken +
+                   any(Ss + r'\|' + Ss + Nmtoken) + Ss + r'\)')
+    AttType = oneof('CDATA', 'ID', 'IDREF', 'IDREFS',
+                    'ENTITY', 'ENTITIES', 'NMTOKEN', 'NMTOKENS',
+                    NotationType, Enumeration)
+    CharRef = oneof('&#[0-9]+;', '&#x[0-9a-fA-F]+;')
+    EntityRef = '&' + Name + ';'
+    PEReference = '%' + Name + ';'
+    Reference = oneof(EntityRef, CharRef)
+    EntityValue = oneof('"' + any('[^%&"]', PEReference, Reference) + '"',
+                        "'" + any("[^%&']", PEReference, Reference) + "'")
+    AttValue = oneof('"' + any('[^<&"]', Reference) + '"',
+                     "'" + any("[^<&']", Reference) + "'")
+    DefaultDecl = oneof('#REQUIRED', '#IMPLIED', opt('#FIXED' + S) + AttValue)
+    AttDef = S + Name + S + AttType + S + DefaultDecl
+    AttlistDecl = '<!' + Ss + 'ATTLIST' + S + Name + any(AttDef) + Ss + '>'
+    NDataDecl = S + 'NDATA' + S + Name
+    EntityDef = oneof(EntityValue, ExternalID + opt(NDataDecl))
+    PEDef = oneof(EntityValue, ExternalID)
+    GEDecl = '<!' + Ss + 'ENTITY' + S + Name + S + EntityDef + Ss + '>'
+    PEDecl = '<!' + Ss + 'ENTITY' + S + '%' + S + Name + S + PEDef + Ss + '>'
+    EntityDecl = oneof(GEDecl, PEDecl)
+    PublicID = 'PUBLIC' + S + quoted  # PubidLiteral
+    NotationDecl = ('<!' + Ss + 'NOTATION' + S + Name + S +
+                    oneof(ExternalID, PublicID) + Ss + '>')
+    markupdecl = oneof(elementdecl, AttlistDecl, EntityDecl, NotationDecl,
+                       #PI, Comment  -- disallowing these
+                       )
+    intSubset = any(markupdecl, PEReference, S)
+    doctypedecl = (named('doctype', '<!' + Ss + 'DOCTYPE' + S + Name) +
+                   named('body',
+                       named('extid', opt(S + ExternalID) + Ss) +
+                       named('subset', opt(r'\[' + intSubset + r'\]' + Ss)) +
+                       '>'))
+    doctypedecl = re.compile(doctypedecl + r'\Z', flags=re.IGNORECASE)
+
+    def ERROR(message, charpos=None):
+        if charpos is None:
+            charpos = pos
+        line = html.count('\n', 0, charpos)+1
+        offset = charpos - html.rfind('\n', 0, charpos)
+        raise ValidationError(message, charpos, line, offset, [])
+
+    # Start by looking for <! DOCTYPE ... >, possibly with <! ... >s inside.
+    m = re.compile('<!' + Ss + 'DOCTYPE' + S + '[^<>]*' +
+                   any('<![^<>]*>[^<>]*') + '>', re.IGNORECASE).search(html)
+    if not m:
+        return '', 0  # no <! DOCTYPE ... > found
+    # Now check whether it's almost correct
+    m2 = doctypedecl.match(html, m.start(), m.end())
+    if not m2:
+        raise ERROR('Invalid doctype', m.start())
+    m = m2
+    r = re.compile(S + 'PUBLIC' + S + '(%s)' % quoted, flags=re.IGNORECASE)
+    for pubid in r.finditer(html, m.start(), m.end()):
+        if not re.match(PubidLiteral + '\Z', pubid.group(1)):
+            raise ERROR('Bad characters in PUBLIC "..." identifier',
+                        pubid.start(1))
+
+    # Now fix the few things about the doctype that we can fix
+    def fix(m):
+        g = m.group()
+        if g[0] in '"\'':
+            return g  # don't change anything in "..." or '...'
+        elif g.startswith('<!'):
+            return '<!'  # remove whitespace after <!
+        else:
+            return g.upper()  # convert keywords to uppercase
+    before, doctype, body, after = (
+        html[:m.start()], m.group('doctype'), m.group('body'), html[m.end():])
+    doctype = re.sub(r'<!\s*(\S+)', lambda m: '<!' + m.group(1).upper(),
+                     doctype)
+    body = re.sub(oneof('"[^"]*"', "'[^']*'",
+                        oneof('#', '!' + Ss) + '[a-zA-Z]+'),
+                     fix, body)
+    return before + doctype + body, m.end()
+
 def xhtmlify(html, encoding=None,
                    self_closing_tags=SELF_CLOSING_TAGS,
                    cdata_tags=CDATA_TAGS,
@@ -447,11 +578,16 @@ def xhtmlify(html, encoding=None,
     tags = []
     result = []
     output = result.append
-    lastpos = 0
-    tag_re = re.compile(TAG_RE, re.DOTALL | re.IGNORECASE)
+    # Output the XML declaration and doctype, if they exist.
+    doctype, lastpos = fix_doctype(html)
+    output(doctype)
     if html.startswith('<?xml') or html.startswith(u'\ufeff<?xml'):
-        lastpos = html.find('>')+1
-        output(html[:lastpos])
+        pos = html.find('>')+1
+        if not doctype:
+            output(html[:pos])
+            lastpos = pos
+    # Start processing tags
+    tag_re = re.compile(TAG_RE, re.DOTALL | re.IGNORECASE)
     for tag_match in tag_re.finditer(html, lastpos):
         pos = tag_match.start()
         prevtag = tags and tags[-1][0].lower() or None
