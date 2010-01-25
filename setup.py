@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '0.1a2'
+version = '0.1rc2'
 
 setup(name='strainer',
       version=version,
