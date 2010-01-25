@@ -4,6 +4,7 @@ import codecs
 
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
 from strainer.xhtmlify import sniff_encoding, fix_xmldecl
+from strainer.doctypes import DOCTYPE_XHTML1_STRICT
 
 
 def xhtmlify(html, *args, **kwargs):
@@ -22,6 +23,36 @@ def xhtmlify(html, *args, **kwargs):
         assert False, (stripped_xhtml, str(e))
     assert xhtml == _xhtmlify(xhtml, *args, **kwargs), xhtml
     return xhtml
+
+def test_simple1():
+    s = '<p><b><i>test'
+    e = '<p><b><i>test</i></b></p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_simple2():
+    s = '<p>'
+    e = '<p></p>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_simple_comment():
+    s = '<!-- test -->'
+    e = '<!-- test -->'  # TODO: what to do about < and > in comments?
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
 
 def test_dont_allow_nesting_ps():
     # Disallow nesting <p> tags since that's what HTML 4 says
@@ -829,3 +860,38 @@ def test_doctype():
     r = xhtmlify(s)
     assert r==e, r
 
+def test_double_doctype():
+    s = DOCTYPE_XHTML1_STRICT + DOCTYPE_XHTML1_STRICT
+    assert s.split('\n')[1].startswith('<!DOCTYPE ')
+    assert s[110:].startswith('<!DOCTYPE ')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc).startswith(
+            'Malformed tag at line 2, column 1 (char 111)'), exc
+    else:
+        assert False, r
+
+def test_embedded_doctype():
+    s = DOCTYPE_XHTML1_STRICT + '<html><head>' + DOCTYPE_XHTML1_STRICT
+    assert s.split('\n')[1][12:].startswith('<!DOCTYPE ')
+    assert s[122:].startswith('<!DOCTYPE '), s[122:]
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc).startswith(
+            'Malformed tag at line 2, column 13 (char 123)'), exc
+    else:
+        assert False, r
+
+def test_complex_doctype():
+    s = r'''<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE html
+        PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+               "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"
+    [
+        <!ATTLIST form autocomplete CDATA #IMPLIED>
+    ]>
+    <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <head><title /></head><body/></html>'''
+    assert _xhtmlify(s)==s
