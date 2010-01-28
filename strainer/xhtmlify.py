@@ -628,6 +628,28 @@ def xhtmlify(html, encoding=None,
             if prevtag in self_closing_tags:
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
+            # http://www.w3.org/TR/xhtml1/#prohibitions
+            prohibitors_of = {
+                'a': ['a'],
+                'img': ['pre'], 'object': ['pre'], 'big': ['pre'],
+                'small': ['pre'], 'sub': ['pre'], 'sup': ['pre'],
+                'input': ['button'], 'select': ['button'],
+                'textarea': ['button'],
+                'button': ['button'], 'form': ['button', 'form'],
+                'fieldset': ['button'], 'iframe': ['button'],
+                'isindex': ['button'],
+                'label': ['button', 'label'],
+            }
+            bad_parents = prohibitors_of.get(tagname, [])
+            for ancestor, _ in tags:
+                if ancestor in bad_parents:
+                    if tagname==ancestor:
+                        other_text = 'other '
+                    else:
+                        other_text = ''
+                    ERROR("XHTML <%s> elements must not "
+                          "contain %s<%s> elements" %
+                          (ancestor, other_text, tagname))
             # No tags other than <div> and <span> can self-nest (I think)
             # and we automatically close <p> tags before structural tags.
             if (tagname==prevtag and tagname not in ('div', 'span')) or (

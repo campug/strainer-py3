@@ -895,3 +895,29 @@ def test_complex_doctype():
     <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
     <head><title /></head><body/></html>'''
     assert _xhtmlify(s)==s
+
+def test_xhtml_appendix_b_prohibitions():
+    prohibitions = {
+        'a': ['a'],
+        'pre': ['img', 'object', 'big', 'small', 'sub', 'sup'],
+        'button': ['input', 'select', 'textarea', 'label', 'button',
+                   'form', 'fieldset', 'iframe', 'isindex'],
+        'label': ['label'],
+        'form': ['form'],
+    }
+    for parent in prohibitions:
+        for child in prohibitions[parent]:
+            s = '<%s><p><%s>' % (parent, child)
+            if child==parent:
+                e_exc = ("XHTML <%s> elements must not "
+                         "contain other <%s> elements")
+            else:
+                e_exc = ("XHTML <%s> elements must not "
+                         "contain <%s> elements")
+            e_exc %= (parent, child)
+            try:
+                r = xhtmlify(s)
+            except ValidationError, e:
+                assert str(e).startswith(e_exc + ' at line 1'), (s, e)
+            else:
+                assert False, (s, r)
