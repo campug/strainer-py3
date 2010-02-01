@@ -105,7 +105,7 @@ def fix_attrs(tagname, attrs, ERROR=None):
     output = result.append
     seen = {}  # enforce XML's "Well-formedness constraint: Unique Att Spec"
     for m in re.compile(ATTR_RE, re.DOTALL).finditer(attrs):
-        output(attrs[lastpos:m.start()])
+        output(attrs[lastpos:m.start()] or ' ')
         lastpos = m.end()
         attr = m.group()
         if '=' not in attr:
@@ -114,17 +114,25 @@ def fix_attrs(tagname, attrs, ERROR=None):
         else:
             name, value = attr.split('=', 1)
             name = name.lower()
+            preval = re.match(r'[ \t\r\n]*', value).group()
+            postval = re.search(r'[ \t\r\n]*\Z', value).group()
+            if postval:
+                assert False
+                value = value[len(preval):-len(postval)]
+            else:
+                value = value[len(preval):]
             if name in seen:
                 ERROR('Repeated attribute "%s"' % name)
             else:
                 seen[name] = 1
             if len(value)>1 and value[0]+value[-1] in ("''", '""'):
                 if value[0] not in value[1:-1]:  # preserve their quoting
-                    output('%s=%s' % (name, ampfix(value).replace('<', '&lt;')))
+                    value = ampfix(value).replace('<', '&lt;')
+                    output('%s=%s%s%s' % (name, preval, value, postval))
                     continue
                 value = value[1:-1]
-            output('%s="%s"' % (name, ampfix(value.replace('"', '&quot;')
-                                                  .replace('<', '&lt;'))))
+            value = ampfix(value.replace('"', '&quot;').replace('<', '&lt;'))
+            output('%s=%s"%s"%s' % (name, preval, value, postval))
     output(attrs[lastpos:])
     if tagname=='html' and 'xmlns' not in seen:
         output(' xmlns="http://www.w3.org/1999/xhtml"')
