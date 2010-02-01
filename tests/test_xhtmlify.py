@@ -54,6 +54,38 @@ def test_simple_comment():
     else:
         assert r==e, r
 
+def test_whitespace_in_tag():
+    s = ('''<meta\thttp-equiv\f\f= 'content-type'\nid=x '''
+         '''content =\ntext/html;charset=utf-8>''')
+    e = ('''<meta\thttp-equiv  = 'content-type'\nid="x" '''
+         '''content =\n"text/html;charset=utf-8" />''')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, repr(r)
+
+def test_touching_attrs():
+    s = '''<p id="a"class=b><br id=d/></p>'''
+    e = '''<p id="a" class="b"><br id="d/" /></p>'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, repr(r)
+
+def test_mini_p():
+    s = '<p/>'
+    e = '<p/>'
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, repr(r)
+
 def test_dont_allow_nesting_ps():
     # Disallow nesting <p> tags since that's what HTML 4 says
     # and it simplifies our other logic for when to insert </p>.
