@@ -171,7 +171,7 @@ def cdatafix(value):
     result = []
     output = result.append
     outside_lexer  = re.compile(r'''((/\*|"|')|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|/|[^/"'<>&\]]+''')
-    comment_lexer  = re.compile(r'''((\*/)|(<!\[CDATA\[)|(\]\]>)|(<)|\]|(>)|(&))|\*|[^\*<>&\]]+''')
+    comment_lexer  = re.compile(r'''((\*/)|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|\*|[^\*<>&\]]+''')
     dqstring_lexer = re.compile(r'''\\[^<>]|((")|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\"<>&\]]+''', re.DOTALL)
     sqstring_lexer = re.compile(r'''\\[^<>]|((')|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\'<>&\]]+''', re.DOTALL)
     Outside, Comment, DQString, SQString = [], [], [], []
