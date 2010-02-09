@@ -76,6 +76,26 @@ def test_touching_attrs():
     else:
         assert r==e, repr(r)
 
+def test_bad_attr():
+    s = '''<a b='1'c'=2/>'''
+    e_exc = "Malformed tag contents at line 1, column 10 (char 10)"
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert str(exc)==e_exc, exc
+    else:
+        assert False, r
+
+def test_bad_attr2():
+    s = '''<a\tb="b>c'\t>'''
+    e = '''<a\tb="&quot;b">c'\t&gt;</a>'''
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, repr(r)
+
 def test_mini_p():
     s = '<p/>'
     e = '<p/>'
@@ -280,7 +300,7 @@ def test_less_than2():
 
 def test_greater_than():
     s = '>'
-    e = '>'
+    e = '&gt;'  # '>' would strictly be ok too...
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
@@ -700,7 +720,7 @@ def test_bad_character_reference():
 
 def test_repeated_attribute():
     s = r"<p><div style='margin-top: 0px' id=x style='margin-left: 0px' />"
-    e_exc = 'Repeated attribute "style" at line 1, column 4 (char 4)'
+    e_exc = 'Repeated attribute "style" at line 1, column 38 (char 38)'
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
