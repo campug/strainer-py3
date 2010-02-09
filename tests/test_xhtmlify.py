@@ -566,6 +566,26 @@ def test_script_cdata_amp_in_dquote_string():
     else:
         assert r==e, r
 
+def test_script_cdata_esc_lt_in_dquote_string():
+    s = r'<script> " \< " </script>'
+    e = r'<script> " \x%02x " </script>' % ord('<')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_esc_gt_in_dquote_string():
+    s = r'<script> " \> " </script>'
+    e = r'<script> " \x%02x " </script>' % ord('>')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
 def test_script_cdata_lt_in_squote_string():
     s = r"<script> ' \'< ' </script>"
     e = r"<script> ' \'\x%02x ' </script>" % ord('<')
@@ -599,6 +619,26 @@ def test_script_cdata_amp_in_squote_string():
 def test_script_cdata_ends_in_squote_string():
     s = r"<script> <![CDATA['x ]]>& ' </script>"
     e = r"<script> <![CDATA['x ]]>\x%02x ' </script>" % ord('&')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_esc_lt_in_squote_string():
+    s = r"<script> ' \< ' </script>"
+    e = r"<script> ' \x%02x ' </script>" % ord('<')
+    try:
+        r = xhtmlify(s)
+    except ValidationError, exc:
+        assert False, exc
+    else:
+        assert r==e, r
+
+def test_script_cdata_esc_gt_in_squote_string():
+    s = r"<script> ' \> ' </script>"
+    e = r"<script> ' \x%02x ' </script>" % ord('>')
     try:
         r = xhtmlify(s)
     except ValidationError, exc:
