@@ -10,7 +10,7 @@ DEBUG = False  # if true, show stack of tags in error messages
 NAME_RE = r'(?:[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?)'
     # low ascii chars of <http://www.w3.org/TR/xml-names>'s "QName" token
 BAD_ATTR_RE = r'''[^> \t\r\n]+'''
-ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?''' % (NAME_RE, BAD_ATTR_RE)
+ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?[ \t\r\n]*''' % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
 #COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
 COMMENT_RE = r'<!--.*?-->'
@@ -53,8 +53,8 @@ class ValidationError(Exception):
 def ampfix(value):
     """Replaces ampersands in value that aren't part of an HTML entity.
     Adapted from <http://effbot.org/zone/re-sub.htm#unescape-html>.
-    Also converts all entities to numeric form and replaces any
-    unmatched "]]>"s with "]]&gt;"."""
+    Also converts all entities to numeric form and replaces every
+    "<" or ">" outside of any CDATA sections with "&lt;" or "&gt;"."""
     def fixup(m):
         text = m.group(0)
         if text=='&':
@@ -90,9 +90,18 @@ def ampfix(value):
                 else:
                     pass
         return '&amp;' + text[1:]
-    value = re.compile('(<!\[CDATA\[.*?\]\]>)|\]\]>', re.DOTALL).sub(
-        (lambda m: m.group(1) or "]]&gt;"), value)
-    return re.sub("&#?\w+;|&", fixup, value)
+    def fix2(m):
+        g = m.group()
+        if g.startswith('<!'):
+            return g
+        elif g=='<':
+            return '&lt;'
+        elif g=='>':
+            return '&gt;'
+        else:
+            return re.sub("&#?\w+;|&", fixup, g)
+    R = re.compile('(<!\[CDATA\[.*?\]\]>)|<!--.*?-->|<|>|[^<>]+', re.DOTALL)
+    return R.sub(fix2, value)
 
 def fix_attrs(tagname, attrs, ERROR=None):
     """Returns an XHTML-clean version of attrs, the attributes part
@@ -104,38 +113,52 @@ def fix_attrs(tagname, attrs, ERROR=None):
     result = []
     output = result.append
     seen = {}  # enforce XML's "Well-formedness constraint: Unique Att Spec"
+    name_re = re.compile('(%s)' % NAME_RE + r'([ \t\r\n]*)\Z')
+    space_before = ' '
     for m in re.compile(ATTR_RE, re.DOTALL).finditer(attrs):
-        output(attrs[lastpos:m.start()] or ' ')
+        assert re.match(r'[ \t\r\n]*\Z', attrs[lastpos:m.start()])
+        output(attrs[lastpos:m.start()] or space_before)
         lastpos = m.end()
         attr = m.group()
+        # A space to insert before the next attribute
+        if attr[-1:] in ' \t\r\n':
+            space_before = ''
+        else:
+            space_before = ' '
         if '=' not in attr:
-            assert re.compile(NAME_RE + r'[ \t\r\n]*\Z').match(attr), repr(attr)
-            output(re.sub('(%s)' % NAME_RE, r'\1="\1"', attr).lower())
+            assert name_re.match(attr), repr(attr)
+            output(re.sub(r'\A(%s)' % NAME_RE, r'\1="\1"', attr).lower())
         else:
             name, value = attr.split('=', 1)
+            m2 = name_re.match(name)
+            if m2:
+                name, postname = m2.groups()
+            else:
+                ERROR("Invalid attribute name", m.start())
             name = name.lower()
             preval = re.match(r'[ \t\r\n]*', value).group()
-            postval = re.search(r'[ \t\r\n]*\Z', value).group()
-            if postval:
-                assert False
-                value = value[len(preval):-len(postval)]
-            else:
-                value = value[len(preval):]
+            value = value[len(preval):]
+            value_end = re.search(r'[ \t\r\n]*\Z', value).start()
+            value, postval = value[:value_end], value[value_end:]
             if name in seen:
-                ERROR('Repeated attribute "%s"' % name)
+                ERROR('Repeated attribute "%s"' % name, m.start())
             else:
                 seen[name] = 1
             if len(value)>1 and value[0]+value[-1] in ("''", '""'):
                 if value[0] not in value[1:-1]:  # preserve their quoting
-                    value = ampfix(value).replace('<', '&lt;')
-                    output('%s=%s%s%s' % (name, preval, value, postval))
+                    value = ampfix(value)
+                    output('%s%s=%s%s%s' % (name, postname, preval, value, postval))
                     continue
                 value = value[1:-1]
-            value = ampfix(value.replace('"', '&quot;').replace('<', '&lt;'))
-            output('%s=%s"%s"%s' % (name, preval, value, postval))
-    output(attrs[lastpos:])
+            value = ampfix(value.replace('"', '&quot;'))
+            output('%s%s=%s"%s"%s' % (name, postname, preval, value, postval))
+    after = attrs[lastpos:]
+    if re.match(r'[ \t\r\n]*/?', after).end()==len(after):
+        output(after)
+    else:
+        ERROR("Malformed tag contents", lastpos)
     if tagname=='html' and 'xmlns' not in seen:
-        output(' xmlns="http://www.w3.org/1999/xhtml"')
+        output(space_before + 'xmlns="http://www.w3.org/1999/xhtml"')
     return ''.join(result)
 
 def cdatafix(value):
@@ -632,7 +655,9 @@ def xhtmlify(html, encoding=None,
             m = re.match(NAME_RE, innards)
             TagName, attrs = m.group(), innards[m.end():]
             tagname = TagName.lower()
-            attrs = fix_attrs(tagname, attrs, ERROR=ERROR)
+            attrs = fix_attrs(tagname, attrs,
+                ERROR=lambda msg, relpos:
+                        ERROR(msg, tag_match.start(1)+m.end()+relpos))
             if prevtag in self_closing_tags:
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
