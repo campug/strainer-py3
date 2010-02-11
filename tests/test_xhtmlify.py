@@ -1013,3 +1013,9 @@ def test_xhtml_appendix_b_prohibitions():
                 assert str(e).startswith(e_exc + ' at line 1'), (s, e)
             else:
                 assert False, (s, r)
+
+def test_fieldset_nesting():
+    s = '<fieldset><fieldset></fieldset></fieldset>'
+    e = s
+    r = xhtmlify(s)
+    assert r==e, repr(r)
