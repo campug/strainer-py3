@@ -1019,3 +1019,9 @@ def test_fieldset_nesting():
     e = s
     r = xhtmlify(s)
     assert r==e, repr(r)
+
+def test_sup_nesting():
+    s = '<sup><sup></sup></sup>'
+    e = s
+    r = xhtmlify(s)
+    assert r==e, repr(r)
