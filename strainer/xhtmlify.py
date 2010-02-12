@@ -683,10 +683,12 @@ def xhtmlify(html, encoding=None,
                     ERROR("XHTML <%s> elements must not "
                           "contain %s<%s> elements" %
                           (ancestor, other_text, tagname))
-            # I'm assuming no tags other than <div>, <span> and <fieldset>
-            # can self-nest, and we automatically close <p> tags before
-            # structural tags.
-            if (tagname==prevtag and tagname not in ('div', 'span', 'fieldset')
+            # I'm assuming only the tags listed below can self-nest,
+            # and we automatically close <p> tags before structural tags.
+            # HTML5 has many others like <section> that we don't support.
+            if (tagname==prevtag and tagname not in ('div', 'span',
+                    'fieldset', 'q', 'blockquote', 'ins', 'del', 'bdo',
+                    'sub', 'sup', 'big', 'small')
                ) or (prevtag=='p' and tagname in structural_tags):
                 tags.pop()
                 output('</%s>' % prevtag)
