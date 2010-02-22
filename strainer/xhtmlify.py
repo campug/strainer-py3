@@ -468,7 +468,7 @@ def fix_doctype(html):
                        'PUBLIC' + S + quoted  # PubidLiteral
                                 + S + SystemLiteral)
     Mixed = oneof(r'\(' + Ss + '#PCDATA' + any(Ss + r'\|' + Ss + Name)
-                        + r'\)\*',
+                        + Ss + r'\)\*',
                   r'\(' + Ss + '#PCDATA' + Ss + r'\)')  # yuck.
     # Replacing this recursive grammar...
     #choice = r'\(' + Ss + cp + some(Ss + r'\|' + Ss + cp) + Ss + r'\)'
