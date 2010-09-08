@@ -74,7 +74,7 @@ def assert_eq_xhtml(needle, haystack):
     """
     assert that one xhtml stream equals another
     """
-    assert eq_xml(needle, haystack), "%s \n --- does not equal ---\n%s"%(needle, haystack)
+    assert eq_xhtml(needle, haystack), "%s \n --- does not equal ---\n%s"%(needle, haystack)
 
 def assert_raises(exc, method, *args, **kw):
     try:
