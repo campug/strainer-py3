@@ -120,7 +120,6 @@ def _eq_dict(ca, cb, ignore=None):
                 del ca[key]
             if key in cb:
                 del cb[key]
-    return True
 
     #this needs to be recursive so we can '&ignore'-out ids anywhere in a json stream
     for key in set(ca.keys() + cb.keys()):
