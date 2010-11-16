@@ -5,6 +5,9 @@ import copy, re
 from pprint import pformat, pprint
 from simplejson import loads
 from nose.tools import *
+import strainer.log as log
+
+log = log.log
 
 def remove_whitespace_nodes(node):
     new_node = copy.copy(node)
@@ -48,7 +51,6 @@ def in_xhtml(needle, haystack):
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError, e:
-        print e.message
         raise ValidationError('Could not parse haystack: %s into xml. %s'%(haystack, e.message))
     return needle_s in haystack_s
 
@@ -95,13 +97,12 @@ def neq_(one, two, msg = None):
 
 def eq_pprint(a, b, msg=None):
     if a != b:
-        pprint(a)
-        print 'does not equal'
-        pprint(b)
-    assert a == b, msg or "%r != %r" % (a, b)
+        log.error(msg)
+        assert False
+    return True
 
 def _eq_list(ca, cb, ignore=None):
-    eq_pprint(len(ca), len(cb), "the lengths of the lists are different %s != %s" % (str(ca), str(cb)))
+    eq_pprint(len(ca), len(cb), "The lengths of the lists are different %s != %s" % (str(ca), str(cb)))
     for i, v in enumerate(ca):
         if isinstance(v, dict):
             _eq_dict(ca[i], cb[i], ignore=ignore)
@@ -109,6 +110,7 @@ def _eq_list(ca, cb, ignore=None):
             _eq_list(ca[i], cb[i], ignore=ignore)
         else:
             eq_pprint(ca[i], cb[i])
+    return True
 
 def _eq_dict(ca, cb, ignore=None):
     # assume ca and cb can be destructively modified
@@ -118,6 +120,7 @@ def _eq_dict(ca, cb, ignore=None):
                 del ca[key]
             if key in cb:
                 del cb[key]
+    return True
 
     #this needs to be recursive so we can '&ignore'-out ids anywhere in a json stream
     for key in set(ca.keys() + cb.keys()):
@@ -125,18 +128,19 @@ def _eq_dict(ca, cb, ignore=None):
         assert key in cb, '%s!= %s\n key "%s" not in second argument' %(ca, cb, key)
         v1 = ca[key]
         v2 = cb[key]
+        log.info('Comparing values for key: %s', key)
         if v1 == '&ignore' or v2 == '&ignore':
+            log.info('Ignored comparison for key: %s', key)
             continue
         if not isinstance(v2, basestring) and isinstance(v1, basestring):
-            eq_pprint(type(v1), type(v2), 'The types of values for "%s" do not match' % key)
+            eq_pprint(type(v1), type(v2), 'The types of values for "%s" do not match (%s vs. %s)' %(key, v1, v2))
         if isinstance(v1, list):
             _eq_list(v1, v2, ignore=ignore)
         elif isinstance(v1, dict):
             _eq_dict(v1, v2, ignore=ignore)
         else:
-            eq_pprint(v1, v2, 'value of key "%s" does not equal:\n%s\ninstead, it\'s:\n%s'%(key, ca[key], cb[key]))
-    #By this point, we've already checked all the keys and values, so don't compare again
- 
+            eq_pprint(v1, v2, 'The types of values for "%s" do not match (%s vs. %s)' %(key, v1, v2))
+    return True
 
 def eq_dict(a, b, ignore=None):
     #Make a copy as our search for ignored values is destructive
@@ -144,6 +148,7 @@ def eq_dict(a, b, ignore=None):
     cb = copy.deepcopy(b)
                 
     _eq_dict(ca, cb, ignore=ignore)
+    return True
 
 def eq_json(a, b):
     if isinstance(a, basestring):
@@ -152,6 +157,8 @@ def eq_json(a, b):
         b = loads(b)
         
     eq_dict(a, b)
+    
+    return True
 
 
 __all__ = [_key for _key in locals().keys() if not _key.startswith('_')]
