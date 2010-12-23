@@ -98,7 +98,7 @@ def neq_(one, two, msg = None):
 def eq_pprint(a, b, msg=None):
     if a != b:
         log.error(msg)
-        assert False
+        return False
     return True
 
 def _eq_list(ca, cb, ignore=None):
