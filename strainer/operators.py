@@ -5,6 +5,7 @@ import copy, re
 from pprint import pformat, pprint
 from simplejson import loads
 from nose.tools import *
+from almostequal import approx_equal
 import strainer.log as log
 
 log = log.log
@@ -18,7 +19,7 @@ def remove_whitespace_nodes(node):
         new_node.tail = ''
     for child in node.getchildren():
         if child is not None:
-            child = remove_whitespace_nodes(child)
+            child = remove_whitespace_nods(child)
         new_node.append(child)
     return new_node
 
@@ -102,14 +103,19 @@ def eq_pprint(a, b, msg=None):
     return True
 
 def _eq_list(ca, cb, ignore=None):
-    eq_pprint(len(ca), len(cb), "The lengths of the lists are different %s != %s" % (str(ca), str(cb)))
+    r = eq_pprint(len(ca), len(cb), "The lengths of the lists are different %s != %s" % (str(ca), str(cb)))
+    if not r:
+        return False
     for i, v in enumerate(ca):
         if isinstance(v, dict):
-            _eq_dict(ca[i], cb[i], ignore=ignore)
+            if not _eq_dict(ca[i], cb[i], ignore=ignore):
+                return False
         elif isinstance(v, list):
-            _eq_list(ca[i], cb[i], ignore=ignore)
+            if not _eq_list(ca[i], cb[i], ignore=ignore):
+                return False
         else:
-            eq_pprint(ca[i], cb[i])
+            if not eq_pprint(ca[i], cb[i]):
+                return False
     return True
 
 def _eq_dict(ca, cb, ignore=None):
@@ -123,8 +129,13 @@ def _eq_dict(ca, cb, ignore=None):
 
     #this needs to be recursive so we can '&ignore'-out ids anywhere in a json stream
     for key in set(ca.keys() + cb.keys()):
-        assert key in ca, '%s!= %s\n key "%s" not in first argument' %(ca, cb, key)
-        assert key in cb, '%s!= %s\n key "%s" not in second argument' %(ca, cb, key)
+        if key not in ca:
+            log.error('%s!= %s\n key "%s" not in first argument' %(ca, cb, key))
+            return False
+        if key not in cb:
+            log.error('%s!= %s\n key "%s" not in second argument' %(ca, cb, key))
+            return False
+        
         v1 = ca[key]
         v2 = cb[key]
         log.info('Comparing values for key: %s', key)
@@ -132,13 +143,23 @@ def _eq_dict(ca, cb, ignore=None):
             log.info('Ignored comparison for key: %s', key)
             continue
         if not isinstance(v2, basestring) and isinstance(v1, basestring):
-            eq_pprint(type(v1), type(v2), 'The types of values for "%s" do not match (%s vs. %s)' %(key, v1, v2))
+            if not eq_pprint(type(v1), type(v2)):
+                log.error('The types of values for "%s" do not match (%s vs. %s)' %(key, v1, v2))
+                return False
         if isinstance(v1, list):
-            _eq_list(v1, v2, ignore=ignore)
+            if not _eq_list(v1, v2, ignore=ignore):
+                return False
         elif isinstance(v1, dict):
-            _eq_dict(v1, v2, ignore=ignore)
+            if not _eq_dict(v1, v2, ignore=ignore):
+                return False
+        elif isinstance(v1, float) and isinstance(v2, float):
+            if not approx_equal(v1, v2):
+                log.error('The values for "%s" do not match (%.30f vs. %.30f)' %(key, v1, v2))
+                return False
         else:
-            eq_pprint(v1, v2, 'The types of values for "%s" do not match (%s vs. %s)' %(key, v1, v2))
+            if not v1 == v2:
+                log.error('The values for "%s" do not match (%s vs. %s)' %(key, v1, v2))
+                return False
     return True
 
 def eq_dict(a, b, ignore=None):
@@ -146,8 +167,7 @@ def eq_dict(a, b, ignore=None):
     ca = copy.deepcopy(a)
     cb = copy.deepcopy(b)
                 
-    _eq_dict(ca, cb, ignore=ignore)
-    return True
+    return _eq_dict(ca, cb, ignore=ignore)
 
 def eq_json(a, b):
     if isinstance(a, basestring):
