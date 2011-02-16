@@ -19,7 +19,7 @@ def remove_whitespace_nodes(node):
         new_node.tail = ''
     for child in node.getchildren():
         if child is not None:
-            child = remove_whitespace_nods(child)
+            child = remove_whitespace_nodes(child)
         new_node.append(child)
     return new_node
 
