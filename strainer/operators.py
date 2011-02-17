@@ -1,4 +1,4 @@
-from xhtmlify import xhtmlify, ValidationError
+from xhtmlify import xhtmlify, XMLParsingError, ValidationError
 from xml.etree import ElementTree as etree
 from xml.parsers.expat import ExpatError
 import copy, re
@@ -38,7 +38,7 @@ def normalize_to_xhtml(needle):
     try:
         needle_node = etree.fromstring(needle)
     except ExpatError, e:
-        raise ExpatError('Could not parse %s into xml. %s'%(needle, e.args[0]))
+        raise XMLParsingError('Could not parse %s into xml. %s'%(needle, e.args[0]))
     needle_node = remove_whitespace_nodes(needle_node)
     remove_namespace(needle_node)
     needle_s = etree.tostring(needle_node)
@@ -48,23 +48,25 @@ def in_xhtml(needle, haystack):
     try:
         needle_s = normalize_to_xhtml(needle)
     except ValidationError, e:
-        raise ValidationError('Could not parse needle: %s into xml. %s'%(needle, e.message))
+        raise XMLParsingError('Could not parse needle: %s into xml. %s'%(needle, e.message))
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError, e:
-        raise ValidationError('Could not parse haystack: %s into xml. %s'%(haystack, e.message))
+        raise XMLParsingError('Could not parse haystack: %s into xml. %s'%(haystack, e.message))
     return needle_s in haystack_s
 
-def eq_xhtml(needle, haystack):
+def eq_xhtml(needle, haystack, wrap=False):
+    if wrap:
+        needle = '<div id="wrapper">%s</div>'
+        haystack = '<div id="wrapper">%s</div>'
     try:
         needle_s = normalize_to_xhtml(needle)
     except ValidationError, e:
-        raise ValidationError('Could not parse needle: %s into xml. %s'%(needle, e.message))
+        raise XMLParsingError('Could not parse needle: %s into xml. %s'%(needle, e.message))
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError, e:
-        print e.message
-        raise ValidationError('Could not parse haystack: %s into xml. %s'%(haystack, e.message))
+        raise XMLParsingError('Could not parse haystack: %s into xml. %s'%(haystack, e.message))
     return needle_s == haystack_s
 
 def assert_in_xhtml(needle, haystack):
