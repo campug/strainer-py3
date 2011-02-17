@@ -40,7 +40,9 @@ STRUCTURAL_TAGS = [
     'section', 'article', 'aside', 'header', 'footer', 'nav'  # HTML 5
 ]
 
-class ValidationError(Exception):
+class StrainerError(Exception): pass
+
+class ValidationError(StrainerError):
     def __init__(self, message, pos, line, offset, tags):
         message += ' at line %d, column %d (char %d)' % (line, offset, pos+1)
         if DEBUG:
@@ -49,6 +51,8 @@ class ValidationError(Exception):
         self.pos = pos
         self.line = line
         self.offset = offset
+
+class XMLParsingError(StrainerError):pass
 
 def ampfix(value):
     """Replaces ampersands in value that aren't part of an HTML entity.
