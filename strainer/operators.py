@@ -80,11 +80,11 @@ def assert_in_xhtml(needle, haystack):
     """
     assert in_xhtml(needle, haystack), "%s not found in %s"%(needle, haystack)
 
-def assert_eq_xhtml(needle, haystack):
+def assert_eq_xhtml(needle, haystack, wrap=False):
     """
     assert that one xhtml stream equals another
     """
-    assert eq_xhtml(needle, haystack), "%s \n --- does not equal ---\n%s"%(needle, haystack)
+    assert eq_xhtml(needle, haystack, wrap), "%s \n --- does not equal ---\n%s"%(needle, haystack)
 
 def assert_raises(exc, method, *args, **kw):
     try:
