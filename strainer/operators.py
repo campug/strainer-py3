@@ -30,9 +30,14 @@ def remove_namespace(doc):
         if match:
             elem.tag = match.group(2)
 
+def replace_escape_chars(needle):
+    needle = needle.replace('&nbsp;', ' ')
+    needle = needle.replace(u'\xa0', ' ')
+    return needle
+
 def normalize_to_xhtml(needle):
-# i dont think this is needed any more... more testing required (xmlify does it)
-#    needle = replace_escape_chars(needle)
+    # We still need this, when in a webtest response, &nbsp; gets replaced with \xa0, and xhtmlify can't handle non-acii
+    needle = replace_escape_chars(needle)
     #first, we need to make sure the needle is valid html
     needle = xhtmlify(needle)
     try:
