@@ -182,9 +182,7 @@ def eq_json(a, b):
     if isinstance(b, basestring):
         b = loads(b)
         
-    eq_dict(a, b)
-    
-    return True
+    return eq_dict(a, b)
 
 
 __all__ = [_key for _key in locals().keys() if not _key.startswith('_')]
