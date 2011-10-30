@@ -1,8 +1,11 @@
-"""Provides XHTML 1.0 validation using lxml."""
-import lxml.etree  # the stdlib's expat parser can't do validation
+"""Provides JSON validation using the best available JSON parser and
+   XHTML 1.0 validation if lxml is importable."""
+
 import os
 import re
 import urlparse
+
+lxml = None  # imported dynamically on first use
 
 try:
     import demjson as json  # most accurate JSON validator AFAIK
@@ -32,9 +35,11 @@ class JSONSyntaxError(ValueError):
 _parser = None
 
 def _get_parser():
-    global _parser
+    global _parser, lxml
     if _parser is not None:
         return _parser
+    if lxml is None:
+        import lxml.etree
     class CustomResolver(lxml.etree.Resolver):
         def __init__(self):
             super(CustomResolver, self).__init__()
@@ -57,7 +62,12 @@ def validate_xhtml(xhtml, doctype=''):
     """Validates that doctype + xhtml matches the DTD.
        If not given or '', doctype will be extracted from the document.
        The resulting doctype must be one of DOCTYPE_XHTML1_STRICT,
-       DOCTYPE_XHTML1_TRANSITIONAL or DOCTYPE_XHTML1_FRAMESET."""
+       DOCTYPE_XHTML1_TRANSITIONAL or DOCTYPE_XHTML1_FRAMESET.
+
+       Requires lxml."""
+    global parser, lxml
+    if lxml is None:
+        import lxml.etree
     try:
         lxml.etree.fromstring(doctype + xhtml, parser=_get_parser())
     except lxml.etree.XMLSyntaxError, e:
@@ -75,7 +85,12 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
        If given, doctype should be one of DOCTYPE_XHTML1_STRICT,
        DOCTYPE_XHTML1_TRANSITIONAL or DOCTYPE_XHTML1_FRAMESET.
        The defaults for doctype and template are DOCTYPE_XHTML1_STRICT
-       and DEFAULT_XHTML_TEMPLATE respectively."""
+       and DEFAULT_XHTML_TEMPLATE respectively.
+
+       Requires lxml."""
+    global lxml
+    if lxml is None:
+        import lxml.etree
     if not doctype:
         doctype = DOCTYPE_XHTML1_STRICT
     if not template:
