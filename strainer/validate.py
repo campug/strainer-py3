@@ -26,13 +26,16 @@ __all__ = ['validate_xhtml', 'validate_xhtml_fragment', 'XHTMLSyntaxError',
 DEFAULT_XHTML_TEMPLATE = ('<html><head><title/></head><body><div>\n'
                           '%s</div></body></html>')
 
+
 class XHTMLSyntaxError(ValueError):
     pass
+
 
 class JSONSyntaxError(ValueError):
     pass
 
 _parser = None
+
 
 def _get_parser():
     global _parser, lxml
@@ -40,6 +43,7 @@ def _get_parser():
         return _parser
     if lxml is None:
         import lxml.etree
+
     class CustomResolver(lxml.etree.Resolver):
         def __init__(self):
             super(CustomResolver, self).__init__()
@@ -48,7 +52,7 @@ def _get_parser():
                              'xhtml-lat1.ent', 'xhtml-special.ent',
                              'xhtml-symbol.ent']:
                 url = 'http://www.w3.org/TR/xhtml1/DTD/' + filename
-                self.cache[url] = resource_string(__name__, 'dtds/'+filename)
+                self.cache[url] = resource_string(__name__, 'dtds/' + filename)
 
         def resolve(self, url, id, context):
             return self.resolve_string(self.cache[url], context)
@@ -57,6 +61,7 @@ def _get_parser():
     _parser = lxml.etree.XMLParser(dtd_validation=True, no_network=True)
     _parser.resolvers.add(resolver)
     return _parser
+
 
 def validate_xhtml(xhtml, doctype=''):
     """Validates that doctype + xhtml matches the DTD.
@@ -75,9 +80,10 @@ def validate_xhtml(xhtml, doctype=''):
         # relative to xhtml.
         tline = doctype.count('\n')
         message = re.sub(r'line (\d+)',
-                         lambda m: 'line %s' % (int(m.group(1))-tline),
+                         lambda m: 'line %s' % (int(m.group(1)) - tline),
                          e.message)
         raise XHTMLSyntaxError(message)
+
 
 def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
     """Validates that xhtml_fragment matches the doctype, after it
@@ -104,9 +110,10 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
         # Try to fix up the error message so line numbers are
         # relative to the fragment.
         message = re.sub(r'line (\d+)',
-                         lambda m: 'line %s' % (int(m.group(1))-tline),
+                         lambda m: 'line %s' % (int(m.group(1)) - tline),
                          e.message)
         raise XHTMLSyntaxError(message)
+
 
 def validate_json(jsonstr):
     """Validates that json is a valid JSON string (by loading it)."""

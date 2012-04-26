@@ -1,22 +1,34 @@
 #!/usr/bin/env python
 """An HTML to XHTML converter."""
-import re, htmlentitydefs, codecs
+import re
+import htmlentitydefs
+import codecs
 import encodings.aliases
 
 
-__all__ = ['xhtmlify', 'xmldecl', 'fix_xmldecl', 'sniff_encoding', 'ValidationError']
+__all__ = [
+    'xhtmlify',
+    'xmldecl',
+    'fix_xmldecl',
+    'sniff_encoding',
+    'ValidationError',
+]
 
-DEBUG = False  # if true, show stack of tags in error messages
+# if true, show stack of tags in error messages
+DEBUG = False
 NAME_RE = r'(?:[A-Za-z_][A-Za-z0-9_.-]*(?::[A-Za-z_][A-Za-z0-9_.-]*)?)'
-    # low ascii chars of <http://www.w3.org/TR/xml-names>'s "QName" token
+# low ascii chars of <http://www.w3.org/TR/xml-names>'s "QName" token
 BAD_ATTR_RE = r'''[^> \t\r\n]+'''
-ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?[ \t\r\n]*''' % (NAME_RE, BAD_ATTR_RE)
+ATTR_RE = r'''%s[ \t\r\n]*(?:=[ \t\r\n]*(?:"[^"]*"|'[^']*'|%s))?[ \t\r\n]*'''\
+        % (NAME_RE, BAD_ATTR_RE)
 CDATA_RE = r'<!\[CDATA\[.*?\]\]>'
-#COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE # comment or doctype-alike
+# comment or doctype-alike
+#COMMENT_RE = r'<!--.*?-->|<![ \t\r\n]*%s.*?>' % NAME_RE
 COMMENT_RE = r'<!--.*?-->'
-TAG_RE = r'''%s|%s|<((?:[^<>'"]+|'[^']*'|"[^"]*"|'|")*)>|<''' % (COMMENT_RE, CDATA_RE)
-INNARDS_RE = r'(%s(?:[ \t\r\n]+%s)*[ \t\r\n]*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)' % (
-                 NAME_RE, ATTR_RE, NAME_RE)
+TAG_RE = r'''%s|%s|<((?:[^<>'"]+|'[^']*'|"[^"]*"|'|")*)>|<'''\
+        % (COMMENT_RE, CDATA_RE)
+INNARDS_RE = r'(%s(?:[ \t\r\n]+%s)*[ \t\r\n]*(/?)\Z)|(/%s[ \t\r\n]*\Z)|(.*)'\
+        % (NAME_RE, ATTR_RE, NAME_RE)
 
 SELF_CLOSING_TAGS = [
     # As per XHTML 1.0 sections 4.6, C.2 and C.3, these are the elements
@@ -40,11 +52,14 @@ STRUCTURAL_TAGS = [
     'section', 'article', 'aside', 'header', 'footer', 'nav'  # HTML 5
 ]
 
-class StrainerError(Exception): pass
+
+class StrainerError(Exception):
+    pass
+
 
 class ValidationError(StrainerError):
     def __init__(self, message, pos, line, offset, tags):
-        message += ' at line %d, column %d (char %d)' % (line, offset, pos+1)
+        message += ' at line %d, column %d (char %d)' % (line, offset, pos + 1)
         if DEBUG:
             message += '\n%r' % tags
         super(ValidationError, self).__init__(message)
@@ -52,7 +67,10 @@ class ValidationError(StrainerError):
         self.line = line
         self.offset = offset
 
-class XMLParsingError(StrainerError):pass
+
+class XMLParsingError(StrainerError):
+    pass
+
 
 def ampfix(value):
     """Replaces ampersands in value that aren't part of an HTML entity.
@@ -61,7 +79,7 @@ def ampfix(value):
     "<" or ">" outside of any CDATA sections with "&lt;" or "&gt;"."""
     def fixup(m):
         text = m.group(0)
-        if text=='&':
+        if text == '&':
             pass
         elif text[:2] == "&#":
             # character reference
@@ -75,8 +93,8 @@ def ampfix(value):
             else:
                 # "&#X...;" is invalid in XHTML
                 c = ord(c)
-                if c in (0x9, 0xA, 0xD) or 0x0020<=c<=0xD7FF or (
-                   0xE000<=c<=0xFFFD) or 0x10000<=c<=0x10FFFF: 
+                if c in (0x9, 0xA, 0xD) or 0x0020 <= c <= 0xD7FF or (
+                   0xE000 <= c <= 0xFFFD) or 0x10000 <= c <= 0x10FFFF:
                     return text.lower()  # well-formed
                 else:
                     pass
@@ -94,24 +112,26 @@ def ampfix(value):
                 else:
                     pass
         return '&amp;' + text[1:]
+
     def fix2(m):
         g = m.group()
         if g.startswith('<!'):
             return g
-        elif g=='<':
+        elif g == '<':
             return '&lt;'
-        elif g=='>':
+        elif g == '>':
             return '&gt;'
         else:
             return re.sub("&#?\w+;|&", fixup, g)
     R = re.compile('(<!\[CDATA\[.*?\]\]>)|<!--.*?-->|<|>|[^<>]+', re.DOTALL)
     return R.sub(fix2, value)
 
+
 def fix_attrs(tagname, attrs, ERROR=None):
     """Returns an XHTML-clean version of attrs, the attributes part
        of an (X)HTML tag. Tries to make as few changes as possible,
        but does convert all attribute names to lowercase."""
-    if not attrs and tagname!='html':
+    if not attrs and tagname != 'html':
         return ''  # most tags have no attrs, quick exit in that case
     lastpos = 0
     result = []
@@ -148,22 +168,26 @@ def fix_attrs(tagname, attrs, ERROR=None):
                 ERROR('Repeated attribute "%s"' % name, m.start())
             else:
                 seen[name] = 1
-            if len(value)>1 and value[0]+value[-1] in ("''", '""'):
+
+            if len(value) > 1 and value[0] + value[-1] in ("''", '""'):
                 if value[0] not in value[1:-1]:  # preserve their quoting
                     value = ampfix(value)
-                    output('%s%s=%s%s%s' % (name, postname, preval, value, postval))
+                    output('%s%s=%s%s%s' % (
+                        name, postname, preval, value, postval))
                     continue
                 value = value[1:-1]
             value = ampfix(value.replace('"', '&quot;'))
             output('%s%s=%s"%s"%s' % (name, postname, preval, value, postval))
     after = attrs[lastpos:]
-    if re.match(r'[ \t\r\n]*/?', after).end()==len(after):
+    if re.match(r'[ \t\r\n]*/?', after).end() == len(after):
         output(after)
     else:
         ERROR("Malformed tag contents", lastpos)
-    if tagname=='html' and 'xmlns' not in seen:
+
+    if tagname == 'html' and 'xmlns' not in seen:
         output(space_before + 'xmlns="http://www.w3.org/1999/xhtml"')
     return ''.join(result)
+
 
 def cdatafix(value):
     """Alters value, the body of a <script> or <style> tag, so that
@@ -174,10 +198,14 @@ def cdatafix(value):
     cdata_re = re.compile('(%s)' % CDATA_RE, re.DOTALL)
     result = []
     output = result.append
-    outside_lexer  = re.compile(r'''((/\*|"|')|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|/|[^/"'<>&\]]+''')
-    comment_lexer  = re.compile(r'''((\*/)|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|\*|[^\*<>&\]]+''')
-    dqstring_lexer = re.compile(r'''\\[^<>]|((")|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\"<>&\]]+''', re.DOTALL)
-    sqstring_lexer = re.compile(r'''\\[^<>]|((')|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\'<>&\]]+''', re.DOTALL)
+    outside_lexer = re.compile(
+        r'''((/\*|"|')|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|/|[^/"'<>&\]]+''')
+    comment_lexer = re.compile(
+        r'''((\*/)|(<!\[CDATA\[)|(\]\]>)|\]|(<)|(>)|(&))|\*|[^\*<>&\]]+''')
+    dqstring_lexer = re.compile(
+        r'''\\[^<>]|((")|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\"<>&\]]+''', re.DOTALL)
+    sqstring_lexer = re.compile(
+        r'''\\[^<>]|((')|(<!\[CDATA\[)|(\]\]>)|\]|(\\<|<)|(\\>|>)|(\\&|&))|[^\\'<>&\]]+''', re.DOTALL)
     Outside, Comment, DQString, SQString = [], [], [], []
     Outside += (outside_lexer.match,
                 '/*<![CDATA[*/ < /*]]>*/',
@@ -207,7 +235,7 @@ def cdatafix(value):
     while pos < len(value):
         m = lexer(value, pos)
         #print '%s:' % names[lexer], 'in_cdata=%d' % in_cdata, repr(m.group())
-        assert m.start()==pos  # no gaps
+        assert m.start() == pos  # no gaps
         pos = m.end()
         (interesting, state_changer, cdata_start, cdata_end,
          lt, gt, amp) = m.groups()
@@ -220,7 +248,7 @@ def cdatafix(value):
                     output(m.group())
                 else:
                     output(']]')
-                    pos = m.start()+2  # so > gets escaped as normal
+                    pos = m.start() + 2  # so > gets escaped as normal
                 in_cdata = False
             elif lt:
                 output(in_cdata and m.group() or lt_rep)
@@ -228,15 +256,17 @@ def cdatafix(value):
                 output(in_cdata and m.group() or gt_rep)
             elif amp:
                 output(in_cdata and m.group() or amp_rep)
-            elif m.group()==']':
+            elif m.group() == ']':
                 output(']')
             else:
                 output(in_cdata and m.group() or state_changer)
-                lexer, lt_rep, gt_rep, amp_rep, next_state = next_state[state_changer]
+                lexer, lt_rep, gt_rep, amp_rep, next_state = \
+                        next_state[state_changer]
         else:
             output(m.group())
     assert not in_cdata  # enforced by calling parser (I think)
     return ''.join(result)
+
 
 def xmldecl(version='1.0', encoding=None, standalone=None):
     """Returns a valid <?xml ...?> declaration suitable for using
@@ -258,15 +288,16 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
                                   0, 1, 1, [])
     sddecl = ''
     if standalone is not None:
-        if standalone is True or standalone=='yes':
+        if standalone is True or standalone == 'yes':
             sddecl = ' standalone="yes"'
-        elif standalone is False or standalone=='no':
+        elif standalone is False or standalone == 'no':
             sddecl = ' standalone="no"'
         else:
             # Don't tell them expected format, guessing won't help
             raise ValidationError('Bad standalone value in XML declaration',
                                   0, 1, 1, [])
     return '<?xml version="%s"%s%s ?>' % (version, encodingdecl, sddecl)
+
 
 def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     """Looks for an XML declaration near the start of xml, cleans it up,
@@ -290,8 +321,10 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
         if starts_utf16_re.match(encoding):
             # XML spec 4.3.3 says "Entities encoded in UTF-16 MUST [...]
             # begin with the Byte Order Mark".
-            if not unicode_input and not (xml.startswith(codecs.BOM_UTF16_LE) or
-                                          xml.startswith(codecs.BOM_UTF16_BE)):
+            if not unicode_input and not (
+                xml.startswith(codecs.BOM_UTF16_LE) or
+                xml.startswith(codecs.BOM_UTF16_BE)):
+
                 xml = u'\ufeff'.encode(encoding) + xml
             elif unicode_input and bomless_utf16_re.match(encoding):
                 xml = u'\ufeff' + xml
@@ -320,7 +353,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     chars_we_need = ('''abcdefghijklmnopqrstuvwxyz'''
                      '''ABCDEFGHIJKLMNOPQRSTUVWXYZ'''
                      '''0123456789.-_ \t\r\n<?'"[]:()+*>''')
-    assert encode(chars_we_need*3)==encode(chars_we_need)*3, enc
+    assert encode(chars_we_need * 3) == encode(chars_we_need) * 3, enc
     L = lambda s: re.escape(encode(s))  # encoded form of literal s
     group = lambda s: '(%s)' % s
     optional = lambda s: '(?:%s)?' % s
@@ -333,10 +366,10 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     lower = charset('abcdefghijklmnopqrstuvwxyz')
     digits = charset('0123456789')
     punc = charset('._-')
-    Name = '(?:%s%s*)' % (oneof([upper, lower]), 
+    Name = '(?:%s%s*)' % (oneof([upper, lower]),
                           oneof([upper, lower, digits, punc]))
-    Ss = charset(' \t\r\n\f')+'*'  # optional white space (inc. formfeed)
-    Sp = charset(' \t\r\n\f')+'+'  # required white space (inc. formfeed)
+    Ss = charset(' \t\r\n\f') + '*'  # optional white space (inc. formfeed)
+    Sp = charset(' \t\r\n\f') + '+'  # required white space (inc. formfeed)
     VERSION = encode('version')
     ENCODING = encode('encoding')
     STANDALONE = encode('standalone')
@@ -345,12 +378,15 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
                                 L('Xml'), L('XmL'), L('XMl'), L('XML')])])
     Attr = ''.join([group(Sp), group(Name), group(''.join([Ss, L('='), Ss])),
         oneof([
-            group(L('"')+all_until(oneof([L('"'), L('<'), L('>')]))+L('"')),
-            group(L("'")+all_until(oneof([L("'"), L('<'), L('>')]))+L("'")),
+            group(L('"') + all_until(oneof([L('"'), L('<'), L('>')])) + L('"')),
+            group(L("'") + all_until(oneof([L("'"), L('<'), L('>')])) + L("'")),
             group(all_until(oneof([Sp, L('?'), L('<'), L('>')]))),
-        ]) ])
+        ])
+    ])
     Attr_re = re.compile(Attr, re.DOTALL)
-    EndDecl = ''.join([group(Ss), oneof([''.join([L('?'), Ss, L('>')]), L('>')])])
+    EndDecl = ''.join([
+        group(Ss), oneof([''.join([L('?'), Ss, L('>')]), L('>')])
+    ])
     m = re.match(StartDecl, xml)
     if m:
         pos = m.end()
@@ -373,20 +409,22 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
                     value = unquoted
                 if name in attrs:
                     pass  # TODO: warn: already got a value for xxx
-                elif name==VERSION:
+                elif name == VERSION:
                     m3 = re.match(Ss + group(L("1.") + digits) + Ss + EOS,
                                   value)
                     if m3:
-                        attrs[name] = wspace + name + eq + quotes + m3.group(1) + quotes
+                        attrs[name] = wspace + name + eq + \
+                                quotes + m3.group(1) + quotes
                     else:
                         pass  # TODO: warn: expected 1.x
-                elif name==ENCODING:
+                elif name == ENCODING:
                     m3 = re.match(Ss + group(Name) + Ss + EOS, value)
                     if m3:
-                        attrs[name] = wspace + name + eq + quotes + m3.group(1) + quotes
+                        attrs[name] = wspace + name + eq + \
+                                quotes + m3.group(1) + quotes
                     else:
                         pass  # TODO: warn: expected a name
-                elif name==STANDALONE:
+                elif name == STANDALONE:
                     m3 = re.match(
                         Ss + oneof([
                             group(oneof([
@@ -399,9 +437,11 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
                     if m3:
                         yes, no = m3.groups()
                         if yes:
-                            attrs[name] = wspace + name + eq + quotes + encode('yes') + quotes
+                            attrs[name] = wspace + name + eq + \
+                                    quotes + encode('yes') + quotes
                         else:
-                            attrs[name] = wspace + name + eq + quotes + encode('no') + quotes
+                            attrs[name] = wspace + name + eq + \
+                                    quotes + encode('no') + quotes
                     else:
                         pass  # TODO: warn: expected yes or no
                 else:
@@ -413,16 +453,17 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
             attrs[ENCODING] = encode(" encoding='%s'" % enc)
         m4 = re.compile(EndDecl).match(xml, pos)
         if m4:
-            return (prefix + encode('<?xml') +
-                    attrs.get(VERSION, encode(" version='%s'" % default_version)) +
-                    (attrs.get(ENCODING) if ENCODING in attrs else '') +
-                    (attrs.get(STANDALONE) if STANDALONE in attrs else '') +
-                    m4.group(1).replace(encode('\f'), encode(' ')) +
-                    encode('?>') + xml[m4.end():])
+            return (
+                prefix + encode('<?xml') +
+                attrs.get(VERSION, encode(" version='%s'" % default_version)) +
+                (attrs.get(ENCODING) if ENCODING in attrs else '') +
+                (attrs.get(STANDALONE) if STANDALONE in attrs else '') +
+                m4.group(1).replace(encode('\f'), encode(' ')) +
+                encode('?>') + xml[m4.end():])
         else:
             m5 = re.compile(oneof([L('>'), L('<')])).search(xml, pos)
             if m5:
-                if m5.group()==encode('>'):
+                if m5.group() == encode('>'):
                     endpos = m5.end()
                 else:
                     endpos = m5.start()
@@ -432,6 +473,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     if unicode_input:
         xml = xml.decode(enc, 'strict')  # reverse the encoding done earlier
     return xml  # no decl detected
+
 
 def fix_doctype(html):
     """\
@@ -459,7 +501,7 @@ def fix_doctype(html):
     NameStartChar = (u'[:A-Z_a-z\xC0-\xD6\xD8-\xF6\u00F8-\u02FF\u0370-\u037D'
                      u'\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF'
                      u'\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]')
-    if len(u'\U00010000')==1:
+    if len(u'\U00010000') == 1:
         NameStartChar = NameStartChar[:-1] + u'\U00010000-\U000EFFFF]'
     NameChar = NameStartChar[:-1] + u"0-9\xB7\u0300-\u036F\u203F-\u2040\-]"
     Name = NameStartChar + any(NameChar)
@@ -525,7 +567,7 @@ def fix_doctype(html):
     def ERROR(message, charpos=None):
         if charpos is None:
             charpos = pos
-        line = html.count('\n', 0, charpos)+1
+        line = html.count('\n', 0, charpos) + 1
         offset = charpos - html.rfind('\n', 0, charpos)
         raise ValidationError(message, charpos, line, offset, [])
 
@@ -563,6 +605,7 @@ def fix_doctype(html):
                      fix, body)
     return before + doctype + body, m.end()
 
+
 def xhtmlify(html, encoding=None,
                    self_closing_tags=SELF_CLOSING_TAGS,
                    cdata_tags=CDATA_TAGS,
@@ -587,7 +630,7 @@ def xhtmlify(html, encoding=None,
     # "in HTML, the Formfeed character (U+000C) is treated as white space"
     html = html.replace(u'\u000C', u' ')
     # Replace disallowed characters with U+FFFD (unicode replacement char)
-    if len(u'\U00010000')==1:
+    if len(u'\U00010000') == 1:
         html = re.sub(  # XML 1.0 section 2.2, "Char" production
             u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD'
               u'\U00010000-\U0010FFFF]',  # <-- 32 bit characters
@@ -601,7 +644,7 @@ def xhtmlify(html, encoding=None,
     def ERROR(message, charpos=None):
         if charpos is None:
             charpos = pos
-        line = html.count('\n', 0, charpos)+1
+        line = html.count('\n', 0, charpos) + 1
         offset = charpos - html.rfind('\n', 0, charpos)
         raise ValidationError(message, charpos, line, offset, tags)
 
@@ -617,7 +660,7 @@ def xhtmlify(html, encoding=None,
     doctype, lastpos = fix_doctype(html)
     output(doctype)
     if html.startswith('<?xml') or html.startswith(u'\ufeff<?xml'):
-        pos = html.find('>')+1
+        pos = html.find('>') + 1
         if not doctype:
             output(html[:pos])
             lastpos = pos
@@ -638,7 +681,7 @@ def xhtmlify(html, encoding=None,
                     output('<!DOCTYPE')
                     lastpos = tag_match.start() + len('<!doctype')
                 continue
-            assert whole_tag=='<'
+            assert whole_tag == '<'
             if prevtag in cdata_tags:
                 continue  # ignore until we have all the text
             else:
@@ -648,20 +691,20 @@ def xhtmlify(html, encoding=None,
         text = html[lastpos:pos]
         if prevtag in cdata_tags:
             m = re.match(r'/(%s)[ \t\r\n]*\Z' % NAME_RE, innards)
-            if not m or m.group(1).lower()!=prevtag:
+            if not m or m.group(1).lower() != prevtag:
                 continue  # not the closing tag we need, keep treating as text
             output(cdatafix(text))
         else:
             output(ampfix(text))
         m = re.compile(INNARDS_RE, re.DOTALL).match(innards)
-        if m.group(1): # opening tag
+        if m.group(1):  # opening tag
             endslash = m.group(2)
             m = re.match(NAME_RE, innards)
             TagName, attrs = m.group(), innards[m.end():]
             tagname = TagName.lower()
             attrs = fix_attrs(tagname, attrs,
                 ERROR=lambda msg, relpos:
-                        ERROR(msg, tag_match.start(1)+m.end()+relpos))
+                        ERROR(msg, tag_match.start(1) + m.end() + relpos))
             if prevtag in self_closing_tags:
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
@@ -680,7 +723,7 @@ def xhtmlify(html, encoding=None,
             bad_parents = prohibitors_of.get(tagname, [])
             for ancestor, _ in tags:
                 if ancestor in bad_parents:
-                    if tagname==ancestor:
+                    if tagname == ancestor:
                         other_text = 'other '
                     else:
                         other_text = ''
@@ -690,29 +733,29 @@ def xhtmlify(html, encoding=None,
             # I'm assuming only the tags listed below can self-nest,
             # and we automatically close <p> tags before structural tags.
             # HTML5 has many others like <section> that we don't support.
-            if (tagname==prevtag and tagname not in ('div', 'span',
+            if (tagname == prevtag and tagname not in ('div', 'span',
                     'fieldset', 'q', 'blockquote', 'ins', 'del', 'bdo',
                     'sub', 'sup', 'big', 'small')
-               ) or (prevtag=='p' and tagname in structural_tags):
+               ) or (prevtag == 'p' and tagname in structural_tags):
                 tags.pop()
                 output('</%s>' % prevtag)
                 #prevtag = tags and tags[-1][0].lower() or None  # not needed
             if endslash:
                 output('<%s%s>' % (tagname, attrs))
             elif tagname in self_closing_tags:
-                if attrs.rstrip()==attrs:
+                if attrs.rstrip() == attrs:
                     attrs += ' '
                 output('<%s%s/>' % (tagname, attrs))  # preempt any closing tag
                 tags.append((TagName, pos))
             else:
                 output('<%s%s>' % (tagname, attrs))
                 tags.append((TagName, pos))
-        elif m.group(3): # closing tag
+        elif m.group(3):  # closing tag
             TagName = re.match(r'/(\w+)', innards).group(1)
             tagname = TagName.lower()
             if prevtag in self_closing_tags:
                 # The tag has already been output in self-closed form.
-                if prevtag==tagname: # explicit close
+                if prevtag == tagname:  # explicit close
                     # Minor hack: discard any whitespace we just output
                     if result[-1].strip():
                         ERROR("Self-closing tag <%s/> is not empty" %
@@ -726,24 +769,24 @@ def xhtmlify(html, encoding=None,
             # If we have found a mismatched close tag, we may insert
             # a close tag for the previous tag to fix it in some cases.
             # Specifically, closing a container can close an open child.
-            if prevtag!=tagname and (
-                 (prevtag=='p' and tagname in structural_tags) or
-                 (prevtag=='li' and tagname in ('ol', 'ul')) or
-                 (prevtag=='dd' and tagname=='dl') or
-                 (prevtag=='area' and tagname=='map') or
-                 (prevtag=='td' and tagname=='tr') or
-                 (prevtag=='th' and tagname=='tr')
+            if prevtag != tagname and (
+                 (prevtag == 'p' and tagname in structural_tags) or
+                 (prevtag == 'li' and tagname in ('ol', 'ul')) or
+                 (prevtag == 'dd' and tagname == 'dl') or
+                 (prevtag == 'area' and tagname == 'map') or
+                 (prevtag == 'td' and tagname == 'tr') or
+                 (prevtag == 'th' and tagname == 'tr')
             ):
                 output('</%s>' % prevtag)
                 tags.pop()
                 prevtag = tags and tags[-1][0].lower() or None
-            if prevtag==tagname:
+            if prevtag == tagname:
                 if tagname not in self_closing_tags:
                     output(tag_match.group().lower())
                     tags.pop()
             else:
                 ERROR("Unexpected closing tag </%s>" % TagName)
-        elif m.group(4): # mismatch
+        elif m.group(4):  # mismatch
             ERROR("Malformed tag")
         else:
             # We don't do any validation on pre-processing tags (<? ... >).
@@ -766,11 +809,12 @@ def xhtmlify(html, encoding=None,
         result = result.encode(encoding)
     return result
 
+
 def test(html=None):
     if html is None:
         import sys
-        if len(sys.argv)==2:
-            if sys.argv[1]=='-':
+        if len(sys.argv) == 2:
+            if sys.argv[1] == '-':
                 html = sys.stdin.read()
             else:
                 html = open(sys.argv[1]).read()
@@ -778,14 +822,15 @@ def test(html=None):
             sys.exit('usage: %s HTMLFILE' % sys.argv[0])
     xhtml = xhtmlify(html)
     try:
-        assert xhtml==xhtmlify(xhtml)
+        assert xhtml == xhtmlify(xhtml)
     except ValidationError:
         print xhtml
         raise
     xmlparse(re.sub('(?s)<!(?!\[).*?>', '', xhtml))  # ET can't handle <!...>
-    if len(sys.argv)==2:
+    if len(sys.argv) == 2:
         sys.stdout.write(xhtml)
     return xhtml
+
 
 def xmlparse(snippet, encoding=None, wrap=None):
     """Parse snippet as XML with ElementTree/expat.  By default it wraps the
@@ -818,7 +863,7 @@ def xmlparse(snippet, encoding=None, wrap=None):
     except xml.parsers.expat.ExpatError, e:
         lineno, offset = e.lineno, e.offset
         lineno -= 1
-        if lineno==input.count('\n'):  # last line => </document>
+        if lineno == input.count('\n'):  # last line => </document>
             lineno -= 1
             offset = len(snippet) - snippet.rfind('\n')
         message = re.sub(r'line \d+', 'line %d' % lineno,
@@ -830,6 +875,7 @@ def xmlparse(snippet, encoding=None, wrap=None):
         parse_error.offset = offset
         parse_error.code = e.code
         raise parse_error
+
 
 def sniff_encoding(xml):
     """Detects the XML encoding as per XML 1.0 section F.1."""
@@ -855,25 +901,48 @@ def sniff_encoding(xml):
     digit = charset('0123456789')
     digits = digit + '+'
     punc = charset('._-')
-    name = '(?:%s%s*)' % (oneof([upper, lower]), 
+    name = '(?:%s%s*)' % (oneof([upper, lower]),
                           oneof([upper, lower, digit, punc]))
-    Ss = charset(' \t\r\n')+'*'  # optional white space
-    Sp = charset(' \t\r\n')+'+'  # required white space
+    Ss = charset(' \t\r\n') + '*'  # optional white space
+    Sp = charset(' \t\r\n') + '+'  # required white space
     Eq = ''.join([Ss, L('='), Ss])
     VersionInfo = ''.join([
-        Sp, L('version'), Eq, oneof([L("'1.")+digits+L("'"),
-                                     L('"1.')+digits+L('"')]) ])
+        Sp,
+        L('version'),
+        Eq,
+        oneof([
+            L("'1.") + digits + L("'"),
+            L('"1.') + digits + L('"'),
+        ])
+    ])
     EncodingDecl = ''.join([
-        Sp, L('encoding'), Eq, oneof([
+        Sp,
+        L('encoding'),
+        Eq,
+        oneof([
             L("'") + '(?P<enc_dq>%s)' % name + L("'"),
-            L('"') + '(?P<enc_sq>%s)' % name + L('"') ]) ])
+            L('"') + '(?P<enc_sq>%s)' % name + L('"')
+        ])
+    ])
     # standalone="yes" is valid XML but almost certainly a lie...
     SDDecl = ''.join([
-        Sp, L('standalone'), Eq, oneof([
-            L("'")+oneof([L('yes'), L('no')])+L("'"),
-            L('"')+oneof([L('yes'), L('no')])+L('"') ]) ])
-    R = ''.join([prefix, L('<?xml'), VersionInfo, optional(EncodingDecl),
-                 optional(SDDecl), Ss, L('?>') ])
+        Sp,
+        L('standalone'),
+        Eq,
+        oneof([
+            L("'") + oneof([L('yes'), L('no')]) + L("'"),
+            L('"') + oneof([L('yes'), L('no')]) + L('"'),
+        ])
+    ])
+    R = ''.join([
+        prefix,
+        L('<?xml'),
+        VersionInfo,
+        optional(EncodingDecl),
+        optional(SDDecl),
+        Ss,
+        L('?>')
+    ])
     m = re.match(R, xml)
     if m:
         encvalue = m.group('enc_dq')
@@ -883,9 +952,10 @@ def sniff_encoding(xml):
                 return enc
         decl_enc = encvalue.decode(enc).encode('ascii')
         bom_codec = None
+
         def get_codec(encoding):
             encoding = encoding.lower()
-            if encoding=='ebcdic':
+            if encoding == 'ebcdic':
                 encoding = 'cp037'  # good enough
             elif encoding in ('utf_16_le', 'utf_16_be'):
                 encoding = 'utf_16'
@@ -895,8 +965,8 @@ def sniff_encoding(xml):
         except LookupError:
             pass  # unknown BOM codec, old version of Python maybe?
         try:
-            if (bom_codec and enc==enc.lower() and
-                get_codec(decl_enc)!=bom_codec):
+            if (bom_codec and enc == enc.lower() and
+                get_codec(decl_enc) != bom_codec):
                     raise ValidationError(
                         "Multiply-specified encoding "
                         "(BOM: %s, XML decl: %s)" % (enc, decl_enc),
@@ -906,6 +976,7 @@ def sniff_encoding(xml):
         return decl_enc
     else:
         return 'UTF-8'
+
 
 def sniff_bom_encoding(xml):
     """Reads any byte-order marker. Returns the implied encoding.
@@ -917,32 +988,31 @@ def sniff_bom_encoding(xml):
     # Warning: The UTF-32 codecs aren't present before Python 2.6...
     # See also http://bugs.python.org/issue1399
     enc = {
-        '\x00\x00\xFE\xFF': 'utf_32', #UCS4 1234, utf_32_be with BOM
-        '\xFF\xFE\x00\x00': 'utf_32', #UCS4 4321, utf_32_le with BOM
-        '\x00\x00\xFF\xFE': 'undefined', #UCS4 2143 (rare, we give up)
-        '\xFE\xFF\x00\x00': 'undefined', #UCS4 3412 (rare, we give up)
-        '\x00\x00\x00\x3C': 'UTF_32_BE', #UCS4 1234 (no BOM)
-        '\x3C\x00\x00\x00': 'UTF_32_LE', #UCS4 4321 (no BOM)
-        '\x00\x00\x3C\x00': 'undefined', #UCS4 2143 (no BOM, we give up)
-        '\x00\x3C\x00\x00': 'undefined', #UCS4 3412 (no BOM, we give up)
-        '\x00\x3C\x00\x3F': 'UTF_16_BE', # missing BOM
-        '\x3C\x00\x3F\x00': 'UTF_16_LE', # missing BOM
+        '\x00\x00\xFE\xFF': 'utf_32',  # UCS4 1234, utf_32_be with BOM
+        '\xFF\xFE\x00\x00': 'utf_32',  # UCS4 4321, utf_32_le with BOM
+        '\x00\x00\xFF\xFE': 'undefined',  # UCS4 2143 (rare, we give up)
+        '\xFE\xFF\x00\x00': 'undefined',  # UCS4 3412 (rare, we give up)
+        '\x00\x00\x00\x3C': 'UTF_32_BE',  # UCS4 1234 (no BOM)
+        '\x3C\x00\x00\x00': 'UTF_32_LE',  # UCS4 4321 (no BOM)
+        '\x00\x00\x3C\x00': 'undefined',  # UCS4 2143 (no BOM, we give up)
+        '\x00\x3C\x00\x00': 'undefined',  # UCS4 3412 (no BOM, we give up)
+        '\x00\x3C\x00\x3F': 'UTF_16_BE',  # missing BOM
+        '\x3C\x00\x3F\x00': 'UTF_16_LE',  # missing BOM
         '\x3C\x3F\x78\x6D': 'ASCII',
         '\x4C\x6F\xA7\x94': 'CP037',  # EBCDIC (unknown code page)
     }.get(xml[:4])
-    if enc and enc==enc.lower():
+    if enc and enc == enc.lower():
         return enc
     if not enc:
-        if xml[:3]=='\xEF\xBB\xBF':
+        if xml[:3] == '\xEF\xBB\xBF':
             return 'utf_8_sig'  # UTF-8 with these three bytes prefixed
-        elif xml[:2]=='\xFF\xFE':
+        elif xml[:2] == '\xFF\xFE':
             return 'utf_16_le'
-        elif xml[:2]=='\xFE\xFF':
+        elif xml[:2] == '\xFE\xFF':
             return 'utf_16_be'
         else:
             enc = 'UTF-8'  # "Other"
     return enc
 
-if __name__=='__main__':
+if __name__ == '__main__':
     test()
-

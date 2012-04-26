@@ -8,7 +8,15 @@ log = logging.getLogger(__name__)
 
 import unittest
 
-__all__ = ['STestCase', 'call_super', 'DelayedException', 'exception_raiser_generator', 'exc_raiser_gen', 'erg']
+__all__ = [
+    'STestCase',
+    'call_super',
+    'DelayedException',
+    'exception_raiser_generator',
+    'exc_raiser_gen',
+    'erg',
+]
+
 
 class STestCase(unittest.TestCase):
     '''
@@ -33,13 +41,16 @@ class STestCase(unittest.TestCase):
         for obj, attr_name, orig in reversed(self.__mocked):
             setattr(obj, attr_name, orig)
 
+
 class DelayedException(Exception):
     """Delayed Exception"""
     def __str__(self):
-        return self.__class__.__doc__ + ": " + ', '.join([str(e) for e in self.args])
+        return self.__class__.__doc__ + ": " + \
+                ', '.join([str(e) for e in self.args])
 
 #Default delay action is to not delay
 delay = False
+
 
 def call_super(after=None, before=None, delay=delay):
     """
@@ -49,7 +60,7 @@ def call_super(after=None, before=None, delay=delay):
 
     If before and after are both set, the value for "after" will take
     precedence.
-    
+
     This method can handle recursive calls up the tree.  It uses C{super} to
     determine the baseclass method to call, so your class structure must
     support that.
@@ -57,6 +68,7 @@ def call_super(after=None, before=None, delay=delay):
     # we trigger on after, so set after based on before if after is not set
     if after is None and before:
         after = False
+
     def dec_call_super(func):
         """
         Always call the superclass's matching method, regardless of the outcome
@@ -64,6 +76,7 @@ def call_super(after=None, before=None, delay=delay):
         """
         def wrapped_call_super(self, klass=None):
             delayed = []
+
             def append_delayed_and_print_traceback(e):
                 # With the caught exception, log it, and delay it
                 delayed.append(e)
@@ -71,17 +84,20 @@ def call_super(after=None, before=None, delay=delay):
                 log.error(str(e))
 
             def get_and_call_super(klass):
-                # Calls the super class function, catching, logging and delaying any exceptions that might occur
+                # Calls the super class function, catching, logging and
+                # delaying any exceptions that might occur
                 try:
                     if not klass:
                         klass = self.__class__
-                    #skip generations that don't define a method named func.__name__
+                    # skip generations that don't define a method
+                    # named func.__name__
                     for cls in inspect.getmro(klass):
                         if func.__name__ in cls.__dict__:
                             klass = cls
                             break
                     else:
-                        raise AttributeError('%s not found on %s' % (func.__name__, func.im_class.__name__))
+                        raise AttributeError('%s not found on %s' % (
+                            func.__name__, func.im_class.__name__))
                     superfunc = getattr(super(klass, self), func.__name__)
                     #superfunc is bound, so "self" is implied
                     #Args and KW needed?
@@ -113,19 +129,23 @@ def call_super(after=None, before=None, delay=delay):
             if delayed:
                 raise DelayedException(*delayed)
             return ret
-        wrapped_call_super.__wrapped_func__  = func
+        wrapped_call_super.__wrapped_func__ = func
         return wrapped_call_super
     dec_call_super.args = (after,)
     return dec_call_super
 
+
 def assert_raises(exc, method, *args, **kwargs):
-    '''Like the nose tool of the same name, but returns the exception raised so that args can be checked'''
+    '''Like the nose tool of the same name, but returns the exception
+    raised so that args can be checked'''
     try:
         ret = method(*args, **kwargs)
     except exc, e:
         return e
     else:
-        raise AssertionError('The expected exception (%s) was not raised' % exc.__name__)
+        raise AssertionError(
+            'The expected exception (%s) was not raised' % exc.__name__)
+
 
 def exception_raiser_generator(exc, *args, **kwargs):
     '''
@@ -133,7 +153,8 @@ def exception_raiser_generator(exc, *args, **kwargs):
     the specified exception, with the supplied arguments.
     @param exc: Exception class to raise
     @type exc: A class descended from Exception, or other raiseable error
-    @returns: A method that when called with any arguments raises the specified exception
+    @returns: A method that when called with any arguments raises the
+              specified exception
     @rtype: method
     '''
     def raiser(*a, **kw):
@@ -141,4 +162,3 @@ def exception_raiser_generator(exc, *args, **kwargs):
     return raiser
 
 exc_raiser_gen = erg = exception_raiser_generator
-

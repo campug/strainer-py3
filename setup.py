@@ -6,13 +6,15 @@ except:
     pass
 
 from setuptools import setup, find_packages
-import sys, os
+import sys
+import os
 
 version = '0.1.4'
 
 setup(name='strainer',
       version=version,
-      description="Tools to allow developers to cleanup web serialization objects (HTML, JSON, XHTML)",
+      description="Tools to allow developers to cleanup web " +
+      "serialization objects (HTML, JSON, XHTML)",
       long_description="""\
 Provides middleware for detecting and correcting errors in web pages that are
 served via the standard WSGI protocol used by most Python web frameworks.
@@ -29,10 +31,10 @@ To add HTML/XHTML/XML well-formedness validation to your WSGI app::
     >>> from strainer.middleware import WellformednessCheckerMiddleware
     >>> app = WellformednessCheckerMiddleware(app)
 
-This uses the expat parser to detect most syntax errors and mismatched tags, 
-but it won't perform stricter checks that the document structure matches the 
-XHTML DTD, such as detecting disallowed child tags or attributes.  For that 
-you should install a recent version of lxml (e.g. "easy_install lxml") and 
+This uses the expat parser to detect most syntax errors and mismatched tags,
+but it won't perform stricter checks that the document structure matches the
+XHTML DTD, such as detecting disallowed child tags or attributes.  For that
+you should install a recent version of lxml (e.g. "easy_install lxml") and
 use XHTMLValidatorMiddleware instead, with code such as::
 
     >>> from strainer.middleware import XHTMLValidatorMiddleware
@@ -43,8 +45,8 @@ To add JSON validation to your WSGI app::
     >>> from strainer.middleware import JSONValidatorMiddleware
     >>> app = JSONValidatorMiddleware(app)
 
-If your web framework doesn't provide an alternative handler for the error 
-messages that are logged to the "strainer.middleware" channel, you can have 
+If your web framework doesn't provide an alternative handler for the error
+messages that are logged to the "strainer.middleware" channel, you can have
 them printed to sys.stderr with::
 
     >>> import logging
@@ -55,7 +57,7 @@ To add automatic correction of common HTML and XHTML errors to your WSGI app::
     >>> from strainer.middleware import XHTMLifyMiddleware
     >>> app = XHTMLifyMiddleware(app)
 
-This is somewhat experimental, but it will improve faster if people use it 
+This is somewhat experimental, but it will improve faster if people use it
 and email us bug reports...
 
 As with all (or at least most) WSGI middleware, you can also combine them::
@@ -65,10 +67,10 @@ As with all (or at least most) WSGI middleware, you can also combine them::
     >>> app = JSONValidatorMiddleware(app)
 
 The middleware in this package buffer the output internally (this violates
-the PEP 333 specification, but it seems unavoidable), so it is best to use 
+the PEP 333 specification, but it seems unavoidable), so it is best to use
 them near the top of the middleware stack.
 """,
-      classifiers=[], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
+      classifiers=[],
       keywords='html xhtml json wsgi',
       author='Tom Lynn and Chris Perkins',
       author_email='chris@percious.com',

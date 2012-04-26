@@ -7,7 +7,8 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 
 # create formatter
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+formatter = logging.Formatter(fmt)
 
 # add formatter to ch
 ch.setFormatter(formatter)

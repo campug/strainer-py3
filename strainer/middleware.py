@@ -14,12 +14,14 @@ __all__ = ['XHTMLValidatorMiddleware', 'XHTMLifyMiddleware',
 
 LOG = logging.getLogger('strainer.middleware')
 
+
 def get_content_type(headers, default=''):
     """Returns the value of the content-type header or default."""
     for key, value in headers:
-        if key.lower()=='content-type':
+        if key.lower() == 'content-type':
             return value
     return default
+
 
 class BufferingMiddleware(object):
     """Buffers the response and passes it through self.filter()."""
@@ -29,6 +31,7 @@ class BufferingMiddleware(object):
     def __call__(self, environ, start_response):
         output = StringIO()
         start_response_args = []
+
         def dummy_start_response(status, headers, exc_info=None):
             start_response_args.append((status, headers, exc_info))
             return output.write
@@ -77,7 +80,7 @@ class XHTMLifyMiddleware(BufferingMiddleware):
     def filter(self, status, headers, exc_info, response):
         content_type = get_content_type(headers)
         parts = content_type.split(';', 1)
-        if len(parts)==2:
+        if len(parts) == 2:
             content_type, rest = parts
         else:
             rest = ''
@@ -93,6 +96,7 @@ class XHTMLifyMiddleware(BufferingMiddleware):
 
 
 from wellformed import is_wellformed_xhtml, is_wellformed_xml
+
 
 class WellformednessCheckerMiddleware(BufferingMiddleware):
     """Checks that served webpages are well-formed HTML/XHTML/XML,
@@ -115,11 +119,12 @@ class WellformednessCheckerMiddleware(BufferingMiddleware):
         content_type = content_type.split(';')[0].strip()
         if content_type in ('text/html', 'application/xml+html'):
             is_wellformed_xhtml(response, record_error=self.record_error)
-        elif content_type.split('+')[0]=='application/xml':
+        elif content_type.split('+')[0] == 'application/xml':
             is_wellformed_xml(response, record_error=self.record_error)
         return response
 
 from validate import validate_json, JSONSyntaxError
+
 
 class JSONValidatorMiddleware(BufferingMiddleware):
     def __init__(self, app, doctype='', record_error=LOG.error):
@@ -131,7 +136,7 @@ class JSONValidatorMiddleware(BufferingMiddleware):
     def filter(self, status, headers, exc_info, response):
         content_type = get_content_type(headers)
         content_type = content_type.split(';')[0].strip()
-        if content_type=='text/json':
+        if content_type == 'text/json':
             try:
                 validate_json(response)
             except JSONSyntaxError, e:
