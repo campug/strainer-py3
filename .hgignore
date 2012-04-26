@@ -10,5 +10,5 @@ build/*
 docs/.build/*
 dist/*
 .svn
-*.egg-info/*
+*.egg*
 .noseids
