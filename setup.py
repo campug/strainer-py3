@@ -1,3 +1,10 @@
+try:
+    # This just quiets down an odd py2.7 bug with nosetests.
+    import multiprocessing
+    import logging
+except:
+    pass
+
 from setuptools import setup, find_packages
 import sys, os
 
@@ -75,6 +82,10 @@ them near the top of the middleware stack.
           # -*- Extra requirements: -*-
           'simplejson',
       ],
+      tests_require=[
+          'nose',
+      ],
+      test_suite='nose.collector',
       entry_points="""
       # -*- Entry points: -*-
       """,
