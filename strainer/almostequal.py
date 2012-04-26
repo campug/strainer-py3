@@ -1,10 +1,18 @@
+
+
 ## {{{ http://code.activestate.com/recipes/577124/ (r1)
 def _float_approx_equal(x, y, tol=1e-18, rel=1e-7):
     if tol is rel is None:
-        raise TypeError('cannot specify both absolute and relative errors are None')
+        raise TypeError(
+            'cannot specify both absolute and relative errors are None'
+        )
     tests = []
-    if tol is not None: tests.append(tol)
-    if rel is not None: tests.append(rel*abs(x))
+    if tol is not None:
+        tests.append(tol)
+
+    if rel is not None:
+        tests.append(rel * abs(x))
+
     assert tests
     return abs(x - y) <= max(tests)
 
@@ -38,10 +46,10 @@ def approx_equal(x, y, *args, **kwargs):
     if not (type(x) is type(y) is float):
         # Skip checking for __approx_equal__ in the common case of two floats.
         methodname = '__approx_equal__'
-        # Allow the objects to specify what they consider "approximately equal",
-        # giving precedence to x. If either object has the appropriate method, we
-        # pass on any optional arguments untouched.
-        for a,b in ((x, y), (y, x)):
+        # Allow the objects to specify what they consider "approximately
+        # equal", giving precedence to x. If either object has the
+        # appropriate method, we pass on any optional arguments untouched.
+        for a, b in ((x, y), (y, x)):
             try:
                 method = getattr(a, methodname)
             except AttributeError:

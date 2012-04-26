@@ -20,6 +20,7 @@ def is_wellformed_xhtml(docpart, record_error=None):
                              entitydefs=htmlentitydefs.entitydefs,
                              record_error=record_error)
 
+
 def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
     """Prefixes doctype to docpart and parses the resulting string.
        Returns True if it parses as XML without error. If entitydefs
@@ -47,7 +48,8 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
         parser.feed(doc)
         parser.close()
         return True
-    except SAXParseException, e:  # catches our exception and other parse errors
+    except SAXParseException, e:
+        # catches our exception and other parse errors
         if record_error is not None:
             line, column = e.getLineNumber(), e.getColumnNumber()
             # Correct location to account for our adding a doctype prefix.
@@ -55,11 +57,15 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
             if line == 1:
                 column -= len(doctype) - (doctype.rfind('\n') + 1)
             # Convert column to 1-based indexing
-            record_error('line %d, column %d: %s' % (line, column+1, e.message))
+            record_error('line %d, column %d: %s' % (
+                line, column + 1, e.message
+            ))
         return False
+
 
 def test():
     assert is_wellformed_xhtml('<foo>&nbsp;&auml;&#65;</foo>')
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     test()
