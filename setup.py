@@ -80,7 +80,6 @@ them near the top of the middleware stack.
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
-          'simplejson',
       ],
       tests_require=[
           'nose',

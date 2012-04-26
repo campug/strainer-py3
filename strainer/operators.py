@@ -3,7 +3,11 @@ from xml.etree import ElementTree as etree
 from xml.parsers.expat import ExpatError
 import copy, re
 from pprint import pformat, pprint
-from simplejson import loads
+try:
+    from simplejson import loads
+except ImportError:
+    from json import loads
+
 from nose.tools import *
 from almostequal import approx_equal
 import strainer.log as log
