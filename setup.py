@@ -73,6 +73,7 @@ them near the top of the middleware stack.
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
+          'simplejson',
       ],
       entry_points="""
       # -*- Entry points: -*-
