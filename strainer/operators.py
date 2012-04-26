@@ -1,16 +1,17 @@
-from xhtmlify import xhtmlify, XMLParsingError, ValidationError
+from .xhtmlify import xhtmlify, XMLParsingError, ValidationError
 from xml.etree import ElementTree as etree
 from xml.parsers.expat import ExpatError
 import copy
 import re
 from pprint import pformat, pprint
+import six
 try:
     from simplejson import loads
 except ImportError:
     from json import loads
 
 from nose.tools import *
-from almostequal import approx_equal
+from .almostequal import approx_equal
 import strainer.log as log
 
 log = log.log
@@ -40,7 +41,7 @@ def remove_namespace(doc):
 
 def replace_escape_chars(needle):
     needle = needle.replace('&nbsp;', ' ')
-    needle = needle.replace(u'\xa0', ' ')
+    needle = needle.replace(six.u('\xa0'), ' ')
     return needle
 
 
@@ -52,7 +53,7 @@ def normalize_to_xhtml(needle):
     needle = xhtmlify(needle)
     try:
         needle_node = etree.fromstring(needle)
-    except ExpatError, e:
+    except ExpatError as e:
         raise XMLParsingError(
             'Could not parse %s into xml. %s' % (needle, e.args[0]))
     needle_node = remove_whitespace_nodes(needle_node)
@@ -64,13 +65,13 @@ def normalize_to_xhtml(needle):
 def in_xhtml(needle, haystack):
     try:
         needle_s = normalize_to_xhtml(needle)
-    except ValidationError, e:
+    except ValidationError as e:
         raise XMLParsingError(
             'Could not parse needle: %s into xml. %s' %
             (needle, e.message))
     try:
         haystack_s = normalize_to_xhtml(haystack)
-    except ValidationError, e:
+    except ValidationError as e:
         raise XMLParsingError(
             'Could not parse haystack: %s into xml. %s' %
             (haystack, e.message))
@@ -83,13 +84,13 @@ def eq_xhtml(needle, haystack, wrap=False):
         haystack = '<div id="wrapper">%s</div>'
     try:
         needle_s = normalize_to_xhtml(needle)
-    except ValidationError, e:
+    except ValidationError as e:
         raise XMLParsingError(
             'Could not parse needle: %s into xml. %s' %
             (needle, e.message))
     try:
         haystack_s = normalize_to_xhtml(haystack)
-    except ValidationError, e:
+    except ValidationError as e:
         raise XMLParsingError(
             'Could not parse haystack: %s into xml. %s' %
             (haystack, e.message))
@@ -115,7 +116,7 @@ def assert_eq_xhtml(needle, haystack, wrap=False):
 def assert_raises(exc, method, *args, **kw):
     try:
         method(*args, **kw)
-    except exc, e:
+    except exc as e:
         return e
     else:
         raise AssertionError(

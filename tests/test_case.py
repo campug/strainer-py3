@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from strainer.case import call_super, STestCase, DelayedException
 from nose.tools import eq_, raises
@@ -8,7 +9,7 @@ class FooTest(STestCase):
         self.capture_stdout()
 
     def _call(self, name):
-        print name
+        print(name)
     
     def foo(self):
         """There is no superclass here"""
@@ -61,7 +62,7 @@ class TestChildsChild(FooChildTest):
     def testBrokeBar(self):
         try:
             self.broke_bar()
-        except DelayedException, e:
+        except DelayedException as e:
             eq_(self.output.getvalue(), 'broke_bar1\nbroke_bar0\n')
         else:
             self.fail('broke_bar should have raised a DelayedException')

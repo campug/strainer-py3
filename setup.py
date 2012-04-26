@@ -81,7 +81,7 @@ them near the top of the middleware stack.
       package_data={'strainer': ['dtds/*']},
       zip_safe=True,
       install_requires=[
-          # -*- Extra requirements: -*-
+          'six',
       ],
       tests_require=[
           'nose',
