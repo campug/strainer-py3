@@ -75,7 +75,7 @@ def validate_xhtml(xhtml, doctype=''):
         import lxml.etree
     try:
         lxml.etree.fromstring(doctype + xhtml, parser=_get_parser())
-    except lxml.etree.XMLSyntaxError, e:
+    except lxml.etree.XMLSyntaxError as e:
         # Try to fix up the error message so line numbers are
         # relative to xhtml.
         tline = doctype.count('\n')
@@ -106,7 +106,7 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
     xhtml = doctype + (template % xhtml_fragment)
     try:
         lxml.etree.fromstring(xhtml, parser=_get_parser())
-    except lxml.etree.XMLSyntaxError, e:
+    except lxml.etree.XMLSyntaxError as e:
         # Try to fix up the error message so line numbers are
         # relative to the fragment.
         message = re.sub(r'line (\d+)',
@@ -119,5 +119,5 @@ def validate_json(jsonstr):
     """Validates that json is a valid JSON string (by loading it)."""
     try:
         json.loads(jsonstr)
-    except ValueError, e:
+    except ValueError as e:
         raise JSONSyntaxError(str(e))

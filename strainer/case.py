@@ -97,7 +97,7 @@ def call_super(after=None, before=None, delay=delay):
                             break
                     else:
                         raise AttributeError('%s not found on %s' % (
-                            func.__name__, func.im_class.__name__))
+                            func.__name__, func.__self__.__class__.__name__))
                     superfunc = getattr(super(klass, self), func.__name__)
                     #superfunc is bound, so "self" is implied
                     #Args and KW needed?
@@ -106,7 +106,7 @@ def call_super(after=None, before=None, delay=delay):
                         superfunc(klass.__base__)
                     else:
                         superfunc()
-                except Exception, e:
+                except Exception as e:
                     if delay:
                         append_delayed_and_print_traceback(e)
                     else:
@@ -117,7 +117,7 @@ def call_super(after=None, before=None, delay=delay):
             #During
             try:
                 ret = func(self)
-            except Exception, e:
+            except Exception as e:
                 if delay:
                     append_delayed_and_print_traceback(e)
                 else:
@@ -140,7 +140,7 @@ def assert_raises(exc, method, *args, **kwargs):
     raised so that args can be checked'''
     try:
         ret = method(*args, **kwargs)
-    except exc, e:
+    except exc as e:
         return e
     else:
         raise AssertionError(

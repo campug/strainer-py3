@@ -1,6 +1,6 @@
 """Provides WSGI middleware for validating and tidying HTML output."""
 import re
-import xhtmlify
+from . import xhtmlify
 import logging
 try:
     from cStringIO import StringIO
@@ -53,7 +53,7 @@ class BufferingMiddleware(object):
         return response
 
 try:
-    from validate import validate_xhtml, XHTMLSyntaxError
+    from .validate import validate_xhtml, XHTMLSyntaxError
 
     class XHTMLValidatorMiddleware(BufferingMiddleware):
         def __init__(self, app, doctype='', record_error=LOG.error):
@@ -69,7 +69,7 @@ try:
             if content_type in ('text/html', 'application/xml+html'):
                 try:
                     validate_xhtml(response, doctype=self.doctype)
-                except XHTMLSyntaxError, e:
+                except XHTMLSyntaxError as e:
                     self.record_error(str(e))
             return response
 except ImportError:
@@ -95,7 +95,7 @@ class XHTMLifyMiddleware(BufferingMiddleware):
         return response
 
 
-from wellformed import is_wellformed_xhtml, is_wellformed_xml
+from .wellformed import is_wellformed_xhtml, is_wellformed_xml
 
 
 class WellformednessCheckerMiddleware(BufferingMiddleware):
@@ -123,7 +123,7 @@ class WellformednessCheckerMiddleware(BufferingMiddleware):
             is_wellformed_xml(response, record_error=self.record_error)
         return response
 
-from validate import validate_json, JSONSyntaxError
+from .validate import validate_json, JSONSyntaxError
 
 
 class JSONValidatorMiddleware(BufferingMiddleware):
@@ -139,6 +139,6 @@ class JSONValidatorMiddleware(BufferingMiddleware):
         if content_type == 'text/json':
             try:
                 validate_json(response)
-            except JSONSyntaxError, e:
+            except JSONSyntaxError as e:
                 self.record_error(str(e))
         return response

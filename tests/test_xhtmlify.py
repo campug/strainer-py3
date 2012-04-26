@@ -5,6 +5,7 @@ import codecs
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
 from strainer.xhtmlify import sniff_encoding, fix_xmldecl
 from strainer.doctypes import DOCTYPE_XHTML1_STRICT
+import six
 
 
 def xhtmlify(html, *args, **kwargs):
@@ -19,7 +20,7 @@ def xhtmlify(html, *args, **kwargs):
         # ET can't handle <!...>
         stripped_xhtml = re.sub(r'(?s)<!(?!\[).*?>', '', xhtml)
         xmlparse(stripped_xhtml, wrap=_wrap)
-    except Exception, e:
+    except Exception as e:
         assert False, (stripped_xhtml, str(e))
     assert xhtml == _xhtmlify(xhtml, *args, **kwargs), xhtml
     return xhtml
@@ -29,7 +30,7 @@ def test_simple1():
     e = '<p><b><i>test</i></b></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -39,7 +40,7 @@ def test_simple2():
     e = '<p></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -49,7 +50,7 @@ def test_simple_comment():
     e = '<!-- test -->'  # TODO: what to do about < and > in comments?
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -61,7 +62,7 @@ def test_whitespace_in_tag():
          '''content =\n"text/html;charset=utf-8" />''')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, repr(r)
@@ -71,7 +72,7 @@ def test_touching_attrs():
     e = '''<p id="a" class="b"><br id="d/" /></p>'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, repr(r)
@@ -81,7 +82,7 @@ def test_bad_attr():
     e_exc = "Malformed tag contents at line 1, column 10 (char 10)"
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -91,7 +92,7 @@ def test_bad_attr2():
     e = '''<a\tb="&quot;b">c'\t&gt;</a>'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, repr(r)
@@ -101,7 +102,7 @@ def test_mini_p():
     e = '<p/>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, repr(r)
@@ -113,7 +114,7 @@ def test_dont_allow_nesting_ps():
     e_exc = "Unexpected closing tag </p> at line 1, column 11 (char 11)"
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -123,7 +124,7 @@ def test_lowercases_attrs():
     e = '<p id="foo" class=\'bar\'><input value="TesT" /></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -133,7 +134,7 @@ def test_quoted_dquote_attr_is_unchanged():
     e = r'''<img alt='"' /><img alt='&quot;' />'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -143,7 +144,7 @@ def test_quoted_squote_attr_is_unchanged():
     e = r'''<img alt="'" /><img alt='&apos;' />'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -153,7 +154,7 @@ def test_single_dquote_attr():
     e = r'''<img alt="&quot;" />'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -163,7 +164,7 @@ def test_single_squote_attr():
     e = r'''<img alt="'" />'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -173,7 +174,7 @@ def test_dquoted_lt_attr_is_replaced():
     e = r'''<img alt="&lt;"/>'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -183,7 +184,7 @@ def test_squoted_lt_attr_is_replaced():
     e = r'''<img alt='&lt;'/>'''
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -193,7 +194,7 @@ def test_self_closing():
     e = '<br /><input value="test" /><input id="x" value="test"  />'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -203,7 +204,7 @@ def test_insert_end_p_before_p():
     e = '<p></p><p></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -213,7 +214,7 @@ def test_dont_insert_end_p_before_div():
     e = '<p><div></div></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -223,7 +224,7 @@ def test_insert_end_p_before_end_h1():
     e = '<h1><p></p></h1>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -233,7 +234,7 @@ def test_insert_end_li_before_end_ul():
     e = '<ul><li></li></ul>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -243,7 +244,7 @@ def test_insert_end_li_before_end_ol():
     e = '<ol><li></li></ol>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -253,7 +254,7 @@ def test_insert_end_td_before_end_tr():
     e = '<tr><td></td></tr>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -263,7 +264,7 @@ def test_insert_end_th_before_end_tr():
     e = '<tr><th></th></tr>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -273,7 +274,7 @@ def test_ampersand():
     e = '<p title="&amp;">&amp;</p><p>&amp;</p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -283,7 +284,7 @@ def test_less_than():
     e_exc = 'Unescaped "<" or unfinished tag at line 1, column 1 (char 1)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -293,7 +294,7 @@ def test_less_than2():
     e_exc = 'Unescaped "<" or unfinished tag at line 1, column 4 (char 4)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -303,7 +304,7 @@ def test_greater_than():
     e = '&gt;'  # '>' would strictly be ok too...
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -313,7 +314,7 @@ def test_apos():
     e = "<p>'</p><p>&apos;</p>"
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -323,7 +324,7 @@ def test_quot():
     e = '<p>"</p><p>&quot;</p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -333,7 +334,7 @@ def test_euro():
     e = '<p>&#x20ac;</p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -343,7 +344,7 @@ def test_unknown_entity():
     e = '<p>&amp;nosuch;</p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -353,7 +354,7 @@ def test_cdata_end_marker():
     e = ']]&gt;'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -365,7 +366,7 @@ def test_end_tag_in_cdata():
     # would break our rule of only making changes where necessary.
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -375,7 +376,7 @@ def test_unclosed_cdata():
     e_exc = 'Unescaped "<" or unfinished tag at line 1, column 4 (char 4)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -411,7 +412,7 @@ def test_script_simple():
     e = '<script>/* test */</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -421,7 +422,7 @@ def test_script_cdata_lt():
     e = '<script> 1 /*<![CDATA[*/ < /*]]>*/ 2 </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -431,7 +432,7 @@ def test_script_cdata_gt():
     e = '<script> 1 /*<![CDATA[*/ > /*]]>*/ 2 </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -441,7 +442,7 @@ def test_script_cdata_amp():
     e = '<script> 1 /*<![CDATA[*/ & /*]]>*/ 2 </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -451,7 +452,7 @@ def test_script_cdata_amp_entity():
     e = '<script>var amp=2; amp += 3 /*<![CDATA[*/ & /*]]>*/amp;</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -461,7 +462,7 @@ def test_script_cdata_lt_in_block_comment():
     e = '<script>/* <![CDATA[<]]> */</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -471,7 +472,7 @@ def test_script_cdata_gt_in_block_comment():
     e = '<script>/* <![CDATA[>]]> */</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -481,7 +482,7 @@ def test_script_cdata_amp_in_block_comment():
     e = '<script>/* <![CDATA[&]]> */</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -491,7 +492,7 @@ def test_script_cdata_lt_in_line_comment():
     e = '<script>// /*<![CDATA[*/ < /*]]>*/ </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -501,7 +502,7 @@ def test_script_cdata_gt_in_line_comment():
     e = '<script>// /*<![CDATA[*/ > /*]]>*/ </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -511,7 +512,7 @@ def test_script_cdata_amp_in_line_comment():
     e = '<script>// /*<![CDATA[*/ & /*]]>*/ </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -521,7 +522,7 @@ def test_script_cdata_end_marker_in_block_comment():
     e = '<script>/* <![CDATA[x]]> ]]<![CDATA[>]]> */</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -531,7 +532,7 @@ def test_script_cdata_end_marker_in_line_comment():
     e = '<script>// <![CDATA[x]]> ]]/*<![CDATA[*/ > /*]]>*/ </script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -541,7 +542,7 @@ def test_script_cdata_lt_in_dquote_string():
     e = r'<script> " \"\x%02x " </script>' % ord('<')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -551,7 +552,7 @@ def test_script_cdata_gt_in_dquote_string():
     e = r'<script> " \"\x%02x " </script>' % ord('>')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -561,7 +562,7 @@ def test_script_cdata_amp_in_dquote_string():
     e = r'<script> " \"\x%02x " </script>' % ord('&')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -571,7 +572,7 @@ def test_script_cdata_esc_lt_in_dquote_string():
     e = r'<script> " \x%02x " </script>' % ord('<')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -581,7 +582,7 @@ def test_script_cdata_esc_gt_in_dquote_string():
     e = r'<script> " \x%02x " </script>' % ord('>')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -591,7 +592,7 @@ def test_script_cdata_lt_in_squote_string():
     e = r"<script> ' \'\x%02x ' </script>" % ord('<')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -601,7 +602,7 @@ def test_script_cdata_gt_in_squote_string():
     e = r"<script> ' \'\x%02x ' </script>" % ord('>')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -611,7 +612,7 @@ def test_script_cdata_amp_in_squote_string():
     e = r"<script> ' \'\x%02x ' </script>" % ord('&')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -621,7 +622,7 @@ def test_script_cdata_ends_in_squote_string():
     e = r"<script> <![CDATA['x ]]>\x%02x ' </script>" % ord('&')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -631,7 +632,7 @@ def test_script_cdata_esc_lt_in_squote_string():
     e = r"<script> ' \x%02x ' </script>" % ord('<')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -641,7 +642,7 @@ def test_script_cdata_esc_gt_in_squote_string():
     e = r"<script> ' \x%02x ' </script>" % ord('>')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -651,7 +652,7 @@ def test_script_cdata_end_script_end_cdata_end_script():
     e = r"<script><![CDATA[</script>]]></script>"
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -661,7 +662,7 @@ def test_script_cdata_unexpected_cdata_end_in_dquote_string():
     e = r'<script>"\x%02x]]\x%02x"</script>' % (ord('<'), ord('>'))
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -671,7 +672,7 @@ def test_script_cdata_unexpected_tag_gets_escaped():
     e = r'<script>/*<![CDATA[*/ < /*]]>*/evil/*<![CDATA[*/ > /*]]>*/</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -681,7 +682,7 @@ def test_script_cdata_unexpected_tag_in_dqstring():
     e = r'<script>document.write("\x3cb\x3e");</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -691,7 +692,7 @@ def test_script_cdata_unexpected_tag_in_sqstring():
     e = r"<script>document.write('\x3cb\x3e');</script>"
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -701,7 +702,7 @@ def test_script_cdata_unexpected_tag_in_block_comment():
     e = r"<script>/* <![CDATA[<]]>evil<![CDATA[>]]> */</script>"
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -711,7 +712,7 @@ def test_script_cdata_unexpected_eof_escapes_contained_tags():
     e = r'<script>/*<![CDATA[*/ < /*]]>*/evil/*<![CDATA[*/ > /*]]>*/</script>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -721,7 +722,7 @@ def test_space_before_tag_name():
     e_exc = 'Malformed tag at line 1, column 1 (char 1)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -733,7 +734,7 @@ def test_pi_unsupported():
     e_exc = 'Malformed tag at line 1, column 4 (char 4)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -743,7 +744,7 @@ def test_doctype_is_uppercased():
     e = r'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -753,7 +754,7 @@ def test_bad_character_reference():
     e = r'<p>&amp;#7;</p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -763,7 +764,7 @@ def test_repeated_attribute():
     e_exc = 'Repeated attribute "style" at line 1, column 38 (char 38)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -773,7 +774,7 @@ def test_attribute_minimization():
     e = r'<option selected="selected"></option>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -784,7 +785,7 @@ def test_junk_in_final_attribute():
     e = r'<p x=":;&quot;/"><img /></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -794,7 +795,7 @@ def test_one_colon_in_name():
     e = r'<py:test xmlns:py="..."/>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -804,7 +805,7 @@ def test_two_colons_in_name():
     e_exc = r'Malformed tag at line 1, column 1 (char 1)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -814,7 +815,7 @@ def test_closing_tags_at_end():
     e = r'this<p>is<a href="..">a test</a></p>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -824,7 +825,7 @@ def test_html_gets_xmlns_attribute():
     e = r'<html xmlns="http://www.w3.org/1999/xhtml"><body>Test</body></html>'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert False, exc
     else:
         assert r==e, r
@@ -834,7 +835,7 @@ def test_innards_re_not_exponential():
     e_exc = r'Malformed tag at line 1, column 1 (char 1)'
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -876,17 +877,17 @@ def test_sniffer():
     for i, (s, e) in enumerate(tests):
         try:
             r = sniff_encoding(s)
-        except ValidationError, exc:
+        except ValidationError as exc:
             assert False, (exc, i)
         else:
             assert r==e, (r, i)
 
 def test_sniffer_exc():
-    s = u'<?xml version="1.0" encoding="Cp037" ?>'.encode('utf-8-sig')
+    s = six.u('<?xml version="1.0" encoding="Cp037" ?>').encode('utf-8-sig')
     e_exc = r'Multiply-specified encoding (BOM: utf_8_sig, XML decl: Cp037) at line 1, column 1 (char 1)'
     try:
         r = sniff_encoding(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc)==e_exc, exc
     else:
         assert False, r
@@ -902,7 +903,7 @@ def test_fix_xmldecl():
             ''.encode(encoding)
         except LookupError:  # not trying to handle unknown encodings yet
             continue
-        xmldecl = fix_xmldecl(u'  <?xml>', encoding, add_encoding=True)
+        xmldecl = fix_xmldecl(six.u('  <?xml>'), encoding, add_encoding=True)
         if encoding.lower().startswith('utf'):
             if '16' in encoding:
                 if 'le' in encoding.lower():
@@ -911,7 +912,7 @@ def test_fix_xmldecl():
                     assert xmldecl.startswith(codecs.BOM_UTF16_BE)
         sniffed = sniff_encoding(xmldecl)
         assert sniffed==encoding, (xmldecl, encoding, sniffed)
-        xmldecl = fix_xmldecl(u'  <?xml>'.encode(encoding), encoding,
+        xmldecl = fix_xmldecl(six.u('  <?xml>').encode(encoding), encoding,
                               add_encoding=True)
         if encoding.lower().startswith('utf'):
             if '16' in encoding:
@@ -931,12 +932,12 @@ def test_formfeed_in_xmldecl():
         '''<?xml version="1.0"  standalone='no'  ?>'''), xmldecl
 
 def test_xhtmlify_handles_utf8_xmldecl():
-    result = xhtmlify(u'<?xml><html>', 'utf-8', _wrap=False)
-    assert result.decode('utf-8')==u'<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>'
+    result = xhtmlify(six.u('<?xml><html>'), 'utf-8', _wrap=False)
+    assert result.decode('utf-8')==six.u('<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>')
 
 def test_xhtmlify_handles_utf16_xmldecl():
-    result = xhtmlify(u'<?xml><html>', 'utf_16_be', _wrap=False)
-    assert result.decode('utf16')==u'<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>'
+    result = xhtmlify(six.u('<?xml><html>'), 'utf_16_be', _wrap=False)
+    assert result.decode('utf16')==six.u('<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>')
 
 def test_doctype():
     s = r'''<?xml version="1.0" encoding="ISO-8859-1"?>
@@ -958,7 +959,7 @@ def test_double_doctype():
     assert s[110:].startswith('<!DOCTYPE ')
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc).startswith(
             'Malformed tag at line 2, column 1 (char 111)'), exc
     else:
@@ -970,7 +971,7 @@ def test_embedded_doctype():
     assert s[122:].startswith('<!DOCTYPE '), s[122:]
     try:
         r = xhtmlify(s)
-    except ValidationError, exc:
+    except ValidationError as exc:
         assert str(exc).startswith(
             'Malformed tag at line 2, column 13 (char 123)'), exc
     else:
@@ -1009,7 +1010,7 @@ def test_xhtml_appendix_b_prohibitions():
             e_exc %= (parent, child)
             try:
                 r = xhtmlify(s)
-            except ValidationError, e:
+            except ValidationError as e:
                 assert str(e).startswith(e_exc + ' at line 1'), (s, e)
             else:
                 assert False, (s, r)

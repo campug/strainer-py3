@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 """An HTML to XHTML converter."""
+from __future__ import print_function
 import re
 import htmlentitydefs
 import codecs
 import encodings.aliases
+import six
 
 
 __all__ = [
@@ -308,7 +310,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     EOS = r'\Z'  # end of string regexp
     starts_utf16_re = re.compile('utf[_-]?16', re.IGNORECASE)
     bomless_utf16_re = re.compile('utf[_-]?16[_-]?[bl]e\Z', re.IGNORECASE)
-    unicode_input = isinstance(xml, unicode)
+    unicode_input = isinstance(xml, six.text_type)
     if not re.match(r'1\.[0-9]+' + EOS, default_version):
         raise ValueError("Bad default XML declaration version")
     if encoding is not None:
@@ -325,9 +327,9 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
                 xml.startswith(codecs.BOM_UTF16_LE) or
                 xml.startswith(codecs.BOM_UTF16_BE)):
 
-                xml = u'\ufeff'.encode(encoding) + xml
+                xml = six.u('\ufeff').encode(encoding) + xml
             elif unicode_input and bomless_utf16_re.match(encoding):
-                xml = u'\ufeff' + xml
+                xml = six.u('\ufeff') + xml
             # "else: pass"; Python adds the BOM when encoding unicode as UTF-16
     if unicode_input:
         if encoding:
@@ -347,7 +349,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     if bomless_utf16_re.match(enc):
         # These need a BOM prefix according to the spec but the default
         # Python encodings of that name don't provide one.
-        prefix = encode(u'\ufeff')
+        prefix = encode(six.u('\ufeff'))
     else:
         prefix = encode('')
     chars_we_need = ('''abcdefghijklmnopqrstuvwxyz'''
@@ -498,12 +500,13 @@ def fix_doctype(html):
     any = lambda *args: '(?:%s)*' % '|'.join(args)
     some = lambda *args: '(?:%s)+' % '|'.join(args)
     named = lambda name, regexp: '(?P<%s>%s)' % (name, regexp)
-    NameStartChar = (u'[:A-Z_a-z\xC0-\xD6\xD8-\xF6\u00F8-\u02FF\u0370-\u037D'
-                     u'\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF'
-                     u'\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]')
-    if len(u'\U00010000') == 1:
-        NameStartChar = NameStartChar[:-1] + u'\U00010000-\U000EFFFF]'
-    NameChar = NameStartChar[:-1] + u"0-9\xB7\u0300-\u036F\u203F-\u2040\-]"
+    NameStartChar = (
+        six.u('[:A-Z_a-z\xC0-\xD6\xD8-\xF6\u00F8-\u02FF\u0370-\u037D') +
+        six.u('\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF') +
+        six.u('\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]'))
+    if len(six.u('\U00010000')) == 1:
+        NameStartChar = NameStartChar[:-1] + six.u('\U00010000-\U000EFFFF]')
+    NameChar = NameStartChar[:-1] + six.u("0-9\xB7\u0300-\u036F\u203F-\u2040\-]")
     Name = NameStartChar + any(NameChar)
     Nmtoken = some(NameChar)
     quoted = oneof('"[^<>"]*"', "'[^<>']*'")
@@ -621,25 +624,25 @@ def xhtmlify(html, encoding=None,
     html = fix_xmldecl(html, encoding=encoding, add_encoding=False)
     if not encoding:
         encoding = sniff_encoding(html)
-    unicode_input = isinstance(html, unicode)
+    unicode_input = isinstance(html, six.text_type)
     if unicode_input:
         html = html.encode(encoding, 'strict')
     if not isinstance(html, str):
         raise TypeError("Expected string, got %s" % type(html))
     html = html.decode(encoding, 'replace')
     # "in HTML, the Formfeed character (U+000C) is treated as white space"
-    html = html.replace(u'\u000C', u' ')
+    html = html.replace(six.u('\u000C'), six.u(' '))
     # Replace disallowed characters with U+FFFD (unicode replacement char)
-    if len(u'\U00010000') == 1:
+    if len(six.u('\U00010000')) == 1:
         html = re.sub(  # XML 1.0 section 2.2, "Char" production
-            u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD'
-              u'\U00010000-\U0010FFFF]',  # <-- 32 bit characters
-            u'\N{replacement character}', html)
+            six.u('[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD') +
+              six.u('\U00010000-\U0010FFFF]'),  # <-- 32 bit characters
+            six.u('\N{replacement character}'), html)
     else:
         # Replace 32-bit characters, this Python build doesn't support them
         html = re.sub(  # XML 1.0 section 2.2, "Char" production
-            u'[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD]',
-            u'\N{replacement character}', html)
+            six.u('[^\x09\x0A\x0D\u0020-\uD7FF\uE000-\uFFFD]'),
+            six.u('\N{replacement character}'), html)
 
     def ERROR(message, charpos=None):
         if charpos is None:
@@ -659,7 +662,7 @@ def xhtmlify(html, encoding=None,
     # Output the XML declaration and doctype, if they exist.
     doctype, lastpos = fix_doctype(html)
     output(doctype)
-    if html.startswith('<?xml') or html.startswith(u'\ufeff<?xml'):
+    if html.startswith('<?xml') or html.startswith(six.u('\ufeff<?xml')):
         pos = html.find('>') + 1
         if not doctype:
             output(html[:pos])
@@ -824,7 +827,7 @@ def test(html=None):
     try:
         assert xhtml == xhtmlify(xhtml)
     except ValidationError:
-        print xhtml
+        print(xhtml)
         raise
     xmlparse(re.sub('(?s)<!(?!\[).*?>', '', xhtml))  # ET can't handle <!...>
     if len(sys.argv) == 2:
@@ -841,7 +844,7 @@ def xmlparse(snippet, encoding=None, wrap=None):
     from xml.etree import ElementTree as ET
     if wrap is None:
         wrap = (not snippet.startswith('<?xml') and
-                not snippet.startswith(u'\ufeff<?xml'))
+                not snippet.startswith(six.u('\ufeff<?xml')))
     try:
         if encoding:
             try:
@@ -854,13 +857,13 @@ def xmlparse(snippet, encoding=None, wrap=None):
             input = '<document>\n%s\n</document>' % snippet
         else:
             input = snippet
-        if isinstance(snippet, unicode):
+        if isinstance(snippet, six.text_type):
             if not encoding:
                 encoding = sniff_encoding(snippet)
             input = input.encode(encoding)
         parser.feed(input)
         parser.close()
-    except xml.parsers.expat.ExpatError, e:
+    except xml.parsers.expat.ExpatError as e:
         lineno, offset = e.lineno, e.offset
         lineno -= 1
         if lineno == input.count('\n'):  # last line => </document>
@@ -891,7 +894,7 @@ def sniff_encoding(xml):
     encode = codecs.lookup(enc).incrementalencoder().encode
     prefix = encode('')  # any header such as a UTF-8 BOM
     if enc in ('utf_16_le', 'utf_16_be'):
-        prefix = u'\ufeff'.encode(enc)  # the standard approach fails
+        prefix = six.u('\ufeff').encode(enc)  # the standard approach fails
     L = lambda s: re.escape(encode(s))  # encoded form of literal s
     optional = lambda s: '(?:%s)?' % s
     oneof = lambda opts: '(?:%s)' % '|'.join(opts)

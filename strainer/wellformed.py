@@ -48,7 +48,7 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
         parser.feed(doc)
         parser.close()
         return True
-    except SAXParseException, e:
+    except SAXParseException as e:
         # catches our exception and other parse errors
         if record_error is not None:
             line, column = e.getLineNumber(), e.getColumnNumber()
