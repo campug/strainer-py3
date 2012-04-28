@@ -2,10 +2,12 @@
 """An HTML to XHTML converter."""
 from __future__ import print_function
 import re
-import htmlentitydefs
+
 import codecs
 import encodings.aliases
 import six
+
+from six.moves import html_entities as htmlentitydefs
 
 
 __all__ = [
@@ -882,9 +884,9 @@ def xmlparse(snippet, encoding=None, wrap=None):
 
 def sniff_encoding(xml):
     """Detects the XML encoding as per XML 1.0 section F.1."""
-    if isinstance(xml, str):
+    if isinstance(xml, six.binary_type):
         xmlstr = xml
-    elif isinstance(xml, basestring):
+    elif isinstance(xml, six.text_type):
         xmlstr = xml.encode('utf-8')
     else:
         raise TypeError('Expected a string, got %r' % type(xml))
@@ -986,8 +988,8 @@ def sniff_bom_encoding(xml):
        If the returned encoding is lowercase it means the BOM uniquely
        identified an encoding, so we don't need to parse the <?xml...?>
        to extract the encoding in theory."""
-    if not isinstance(xml, str):
-        raise TypeError('Expected str, got %r' % type(xml))
+    if not isinstance(xml, six.binary_type):
+        raise TypeError('Expected str/bytes, got %r' % type(xml))
     # Warning: The UTF-32 codecs aren't present before Python 2.6...
     # See also http://bugs.python.org/issue1399
     enc = {
