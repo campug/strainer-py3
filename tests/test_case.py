@@ -1,9 +1,8 @@
 from __future__ import print_function
-import sys
-PY3 = True if sys.version_info[:1] == (3,) else False
-
 from strainer.case import call_super, STestCase, DelayedException
+from strainer.xhtmlify import PY3
 from nose.tools import eq_, raises
+
 
 class FooTest(STestCase):
     def setUp(self):
