@@ -1,4 +1,5 @@
 import strainer.operators as ops
+from strainer.xhtmlify import PY3
 from nose.tools import raises
 
 
@@ -7,7 +8,8 @@ def test_normalize_to_xhtml():
         <div></div>
         </form>"""
     e = """<form action="" class="required tableform" method="post"><div /></form>"""
-    r =ops.normalize_to_xhtml(s)
+    e = e.encode('ascii') if PY3 else e
+    r = ops.normalize_to_xhtml(s)
     assert r == e, r
 
 def test_normalize_to_xhtml_with_escapes():
@@ -15,7 +17,8 @@ def test_normalize_to_xhtml_with_escapes():
         <div></div>&nbsp;
         </form>"""
     e = """<form action="" class="required tableform" method="post"><div /></form>"""
-    r =ops.normalize_to_xhtml(s)
+    e = e.encode('ascii') if PY3 else e
+    r = ops.normalize_to_xhtml(s)
     assert r == e, r
 
 def test_fix_xml_with_namespace():
@@ -29,7 +32,9 @@ def test_fix_xml_with_namespace():
     </body>
     </html>"""
     e = """<html><body><form action="" class="required tableform" method="post"><div /></form></body></html>"""
-    r =ops.normalize_to_xhtml(s)
+    e = e.encode('ascii') if PY3 else e
+    r = ops.normalize_to_xhtml(s)
+    assert r == e, r
 
 def test_eq_xhtml():
     b = "<foo><bar>Value</bar></foo>"

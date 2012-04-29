@@ -3,7 +3,10 @@
 
 import os
 import re
-import urlparse
+try:
+    import urllib.parse
+except ImportError:
+    import urlparse
 
 lxml = None  # imported dynamically on first use
 
@@ -17,6 +20,7 @@ except ImportError:
 
 from pkg_resources import resource_string
 from strainer.doctypes import *
+from strainer.xhtmlify import PY3
 
 
 __all__ = ['validate_xhtml', 'validate_xhtml_fragment', 'XHTMLSyntaxError',
@@ -81,7 +85,7 @@ def validate_xhtml(xhtml, doctype=''):
         tline = doctype.count('\n')
         message = re.sub(r'line (\d+)',
                          lambda m: 'line %s' % (int(m.group(1)) - tline),
-                         e.message)
+                         e.args[0] if PY3 else e.message)
         raise XHTMLSyntaxError(message)
 
 
@@ -111,7 +115,7 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
         # relative to the fragment.
         message = re.sub(r'line (\d+)',
                          lambda m: 'line %s' % (int(m.group(1)) - tline),
-                         e.message)
+                         e.args[0] if PY3 else e.message)
         raise XHTMLSyntaxError(message)
 
 

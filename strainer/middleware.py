@@ -3,9 +3,12 @@ import re
 from . import xhtmlify
 import logging
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    try:
+        from cStringIO import StringIO
+    except ImportError:
+        from StringIO import StringIO
 
 
 __all__ = ['XHTMLValidatorMiddleware', 'XHTMLifyMiddleware',
@@ -37,7 +40,7 @@ class BufferingMiddleware(object):
             return output.write
         app_iter = self.app(environ, dummy_start_response)
         for line in app_iter:
-            output.write(line)
+            output.write(line if xhtmlify.PY3 else line.decode())
         if hasattr(app_iter, 'close'):
             app_iter.close()
         response = output.getvalue()

@@ -1,4 +1,4 @@
-from .xhtmlify import xhtmlify, XMLParsingError, ValidationError
+from .xhtmlify import xhtmlify, XMLParsingError, ValidationError, PY3
 from xml.etree import ElementTree as etree
 from xml.parsers.expat import ExpatError
 import copy
@@ -68,13 +68,13 @@ def in_xhtml(needle, haystack):
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse needle: %s into xml. %s' %
-            (needle, e.message))
+            (needle, e.args[0] if PY3 else e.message))
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse haystack: %s into xml. %s' %
-            (haystack, e.message))
+            (haystack, e.args[0] if PY3 else e.message))
     return needle_s in haystack_s
 
 
@@ -87,13 +87,13 @@ def eq_xhtml(needle, haystack, wrap=False):
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse needle: %s into xml. %s' %
-            (needle, e.message))
+            (needle, e.args[0] if PY3 else e.message))
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse haystack: %s into xml. %s' %
-            (haystack, e.message))
+            (haystack, e.args[0] if PY3 else e.message))
     return needle_s == haystack_s
 
 
@@ -172,7 +172,7 @@ def _eq_dict(ca, cb, ignore=None):
 
     # this needs to be recursive so we can '&ignore'-out ids anywhere
     # in a json stream
-    for key in set(ca.keys() + cb.keys()):
+    for key in set(list(ca.keys()) + list(cb.keys())):
         if key not in ca:
             log.error('%s!= %s\n key "%s" not in first argument' %
                       (ca, cb, key))
@@ -188,7 +188,7 @@ def _eq_dict(ca, cb, ignore=None):
         if v1 == '&ignore' or v2 == '&ignore':
             log.info('Ignored comparison for key: %s', key)
             continue
-        if not isinstance(v2, basestring) and isinstance(v1, basestring):
+        if not isinstance(v2, str) and isinstance(v1, str):
             if not eq_pprint(type(v1), type(v2)):
                 log.error(
                     'The types of values for "%s" do not match (%s vs. %s)' %
@@ -224,12 +224,12 @@ def eq_dict(a, b, ignore=None):
 
 
 def eq_json(a, b):
-    if isinstance(a, basestring):
+    if isinstance(a, str):
         a = loads(a)
-    if isinstance(b, basestring):
+    if isinstance(b, str):
         b = loads(b)
 
     return eq_dict(a, b)
 
 
-__all__ = [_key for _key in locals().keys() if not _key.startswith('_')]
+__all__ = [_key for _key in list(locals().keys()) if not _key.startswith('_')]

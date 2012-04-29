@@ -1,5 +1,12 @@
 import sys
-from cStringIO import StringIO
+PY3 = True if sys.version_info[:1] == (3,) else False
+try:
+    from io import StringIO
+except ImportError:
+    try:
+        from cStringIO import StringIO
+    except ImportError:
+        from StringIO import StringIO
 
 import inspect
 import traceback
@@ -80,7 +87,10 @@ def call_super(after=None, before=None, delay=delay):
             def append_delayed_and_print_traceback(e):
                 # With the caught exception, log it, and delay it
                 delayed.append(e)
-                log.debug(traceback.format_exc(sys.exc_info()[2]))
+                if PY3:
+                    log.debug(traceback.format_tb(e.__traceback__)[0])
+                else:
+                    log.debug(traceback.format_exc(sys.exc_info()[2]))
                 log.error(str(e))
 
             def get_and_call_super(klass):
