@@ -292,7 +292,7 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
     encodingdecl = ''
     if encoding is not None:
         EncName_re = re.compile(r'[A-Za-z][A-Za-z0-9._-]*\Z')  # from XML spec
-        if isinstance(encoding, str) and EncName_re.match(encoding):
+        if isinstance(encoding, six.text_type) and EncName_re.match(encoding):
             encodingdecl = ' encoding="%s"' % encoding
         else:
             # Don't tell them expected format, guessing won't help

@@ -1,8 +1,6 @@
 import re
 import encodings.aliases
 import codecs
-import sys
-PY3 = True if sys.version_info[:1] == (3,) else False
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
 from strainer.xhtmlify import sniff_encoding, fix_xmldecl
 from strainer.doctypes import DOCTYPE_XHTML1_STRICT

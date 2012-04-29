@@ -1,5 +1,5 @@
 import sys
-PY3 = True if sys.version_info[:1] == (3,) else False
+PY3 = (sys.version_info[0] >= 3)
 try:
     from io import StringIO
 except ImportError:

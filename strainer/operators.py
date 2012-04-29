@@ -188,7 +188,7 @@ def _eq_dict(ca, cb, ignore=None):
         if v1 == '&ignore' or v2 == '&ignore':
             log.info('Ignored comparison for key: %s', key)
             continue
-        if not isinstance(v2, str) and isinstance(v1, str):
+        if not isinstance(v2, six.text_type) and isinstance(v1, six.text_type):
             if not eq_pprint(type(v1), type(v2)):
                 log.error(
                     'The types of values for "%s" do not match (%s vs. %s)' %
@@ -224,9 +224,9 @@ def eq_dict(a, b, ignore=None):
 
 
 def eq_json(a, b):
-    if isinstance(a, str):
+    if isinstance(a, six.text_type):
         a = loads(a)
-    if isinstance(b, str):
+    if isinstance(b, six.text_type):
         b = loads(b)
 
     return eq_dict(a, b)
