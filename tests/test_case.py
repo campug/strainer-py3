@@ -1,5 +1,7 @@
 from __future__ import print_function
 import sys
+PY3 = True if sys.version_info[:1] == (3,) else False
+
 from strainer.case import call_super, STestCase, DelayedException
 from nose.tools import eq_, raises
 
@@ -9,8 +11,8 @@ class FooTest(STestCase):
         self.capture_stdout()
 
     def _call(self, name):
-        print(name)
-    
+        print(name if PY3 else name.decode())
+
     def foo(self):
         """There is no superclass here"""
         self._call('foo0')

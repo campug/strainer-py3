@@ -2,12 +2,18 @@
 """An HTML to XHTML converter."""
 from __future__ import print_function
 import re
+try:
+    import html.entities as htmlentitydefs
+    PY3 = True
+except ImportError:
+    import htmlentitydefs
+    PY3 = False
 
 import codecs
 import encodings.aliases
 import six
 
-from six.moves import html_entities as htmlentitydefs
+# from six.moves import html_entities as htmlentitydefs
 
 
 __all__ = [
@@ -16,6 +22,7 @@ __all__ = [
     'fix_xmldecl',
     'sniff_encoding',
     'ValidationError',
+    'PY3',
 ]
 
 # if true, show stack of tags in error messages
@@ -88,10 +95,11 @@ def ampfix(value):
         elif text[:2] == "&#":
             # character reference
             try:
+                uchr = chr if PY3 else unichr
                 if text[:3] in ("&#x", "&#X"):
-                    c = unichr(int(text[3:-1], 16))
+                    c = uchr(int(text[3:-1], 16))
                 else:
-                    c = unichr(int(text[2:-1], 10))
+                    c = uchr(int(text[2:-1], 10))
             except ValueError:
                 pass
             else:
@@ -284,7 +292,7 @@ def xmldecl(version='1.0', encoding=None, standalone=None):
     encodingdecl = ''
     if encoding is not None:
         EncName_re = re.compile(r'[A-Za-z][A-Za-z0-9._-]*\Z')  # from XML spec
-        if isinstance(encoding, basestring) and EncName_re.match(encoding):
+        if isinstance(encoding, str) and EncName_re.match(encoding):
             encodingdecl = ' encoding="%s"' % encoding
         else:
             # Don't tell them expected format, guessing won't help
@@ -358,14 +366,14 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
                      '''ABCDEFGHIJKLMNOPQRSTUVWXYZ'''
                      '''0123456789.-_ \t\r\n<?'"[]:()+*>''')
     assert encode(chars_we_need * 3) == encode(chars_we_need) * 3, enc
-    L = lambda s: re.escape(encode(s))  # encoded form of literal s
+    L = lambda s: re.escape(str(s) if PY3 else encode(s))  # encoded form of literal s
     group = lambda s: '(%s)' % s
-    optional = lambda s: '(?:%s)?' % s
-    oneof = lambda opts: '(?:%s)' % '|'.join(opts)
+    # optional = lambda s: '(?:%s)?' % s
+    oneof = lambda opts: '(?:%s)' % '|'.join([str(opt) for opt in opts])
     charset = lambda s: oneof([L(c) for c in s])
     all_until = lambda s: '(?:(?!%s).)*' % s
-    caseless = lambda s: oneof([L(c.lower()) for c in s] +
-                               [L(c.upper()) for c in s])
+    # caseless = lambda s: oneof([L(c.lower()) for c in s] +
+    #                            [L(c.upper()) for c in s])
     upper = charset('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
     lower = charset('abcdefghijklmnopqrstuvwxyz')
     digits = charset('0123456789')
@@ -377,7 +385,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     VERSION = encode('version')
     ENCODING = encode('encoding')
     STANDALONE = encode('standalone')
-    StartDecl = ''.join([prefix, Ss, L('<'), Ss, L('?'), Ss,
+    StartDecl = ''.join([str(prefix), Ss, L('<'), Ss, L('?'), Ss,
                          oneof([L('xml'), L('xmL'), L('xMl'), L('xML'),
                                 L('Xml'), L('XmL'), L('XMl'), L('XML')])])
     Attr = ''.join([group(Sp), group(Name), group(''.join([Ss, L('='), Ss])),
@@ -391,7 +399,7 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
     EndDecl = ''.join([
         group(Ss), oneof([''.join([L('?'), Ss, L('>')]), L('>')])
     ])
-    m = re.match(StartDecl, xml)
+    m = re.match(StartDecl, str(xml) if PY3 else xml)
     if m:
         pos = m.end()
         attrs = {}
@@ -627,11 +635,12 @@ def xhtmlify(html, encoding=None,
     if not encoding:
         encoding = sniff_encoding(html)
     unicode_input = isinstance(html, six.text_type)
-    if unicode_input:
+    if unicode_input and not PY3:
         html = html.encode(encoding, 'strict')
     if not isinstance(html, str):
         raise TypeError("Expected string, got %s" % type(html))
-    html = html.decode(encoding, 'replace')
+    if not PY3:
+        html = html.decode(encoding, 'replace')
     # "in HTML, the Formfeed character (U+000C) is treated as white space"
     html = html.replace(six.u('\u000C'), six.u(' '))
     # Replace disallowed characters with U+FFFD (unicode replacement char)
@@ -872,7 +881,7 @@ def xmlparse(snippet, encoding=None, wrap=None):
             lineno -= 1
             offset = len(snippet) - snippet.rfind('\n')
         message = re.sub(r'line \d+', 'line %d' % lineno,
-                         e.message, count=1)
+                         e.args[0] if PY3 else e.message, count=1)
         message = re.sub(r'column \d+', 'column %d' % offset,
                          message, count=1)
         parse_error = xml.parsers.expat.ExpatError(message)
@@ -897,9 +906,10 @@ def sniff_encoding(xml):
     prefix = encode('')  # any header such as a UTF-8 BOM
     if enc in ('utf_16_le', 'utf_16_be'):
         prefix = six.u('\ufeff').encode(enc)  # the standard approach fails
-    L = lambda s: re.escape(encode(s))  # encoded form of literal s
+    L = lambda s: re.escape(str(s) if PY3 else encode(s))  # encoded form of literal s
     optional = lambda s: '(?:%s)?' % s
-    oneof = lambda opts: '(?:%s)' % '|'.join(opts)
+    oneof = lambda opts: '(?:%s)' % '|'.join(
+            [str(opt) if PY3 else opt for opt in opts])
     charset = lambda s: oneof([L(c) for c in s])
     upper = charset('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
     lower = charset('abcdefghijklmnopqrstuvwxyz')
@@ -940,7 +950,7 @@ def sniff_encoding(xml):
         ])
     ])
     R = ''.join([
-        prefix,
+        str(prefix) if PY3 else prefix,
         L('<?xml'),
         VersionInfo,
         optional(EncodingDecl),
@@ -948,7 +958,7 @@ def sniff_encoding(xml):
         Ss,
         L('?>')
     ])
-    m = re.match(R, xml)
+    m = re.match(R, str(xml) if PY3 else xml)
     if m:
         encvalue = m.group('enc_dq')
         if encvalue is None:
