@@ -20,7 +20,6 @@ except ImportError:
 
 from pkg_resources import resource_string
 from strainer.doctypes import *
-from strainer.xhtmlify import PY3
 
 
 __all__ = ['validate_xhtml', 'validate_xhtml_fragment', 'XHTMLSyntaxError',
@@ -85,7 +84,7 @@ def validate_xhtml(xhtml, doctype=''):
         tline = doctype.count('\n')
         message = re.sub(r'line (\d+)',
                          lambda m: 'line %s' % (int(m.group(1)) - tline),
-                         e.args[0] if PY3 else e.message)
+                         e.args[0])
         raise XHTMLSyntaxError(message)
 
 
@@ -115,7 +114,7 @@ def validate_xhtml_fragment(xhtml_fragment, doctype=None, template=None):
         # relative to the fragment.
         message = re.sub(r'line (\d+)',
                          lambda m: 'line %s' % (int(m.group(1)) - tline),
-                         e.args[0] if PY3 else e.message)
+                         e.args[0])
         raise XHTMLSyntaxError(message)
 
 
