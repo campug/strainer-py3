@@ -1,4 +1,4 @@
-from .xhtmlify import xhtmlify, XMLParsingError, ValidationError, PY3
+from .xhtmlify import xhtmlify, XMLParsingError, ValidationError
 from xml.etree import ElementTree as etree
 from xml.parsers.expat import ExpatError
 import copy
@@ -68,13 +68,13 @@ def in_xhtml(needle, haystack):
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse needle: %s into xml. %s' %
-            (needle, e.args[0] if PY3 else e.message))
+            (needle, e.args[0]))
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse haystack: %s into xml. %s' %
-            (haystack, e.args[0] if PY3 else e.message))
+            (haystack, e.args[0]))
     return needle_s in haystack_s
 
 
@@ -87,13 +87,13 @@ def eq_xhtml(needle, haystack, wrap=False):
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse needle: %s into xml. %s' %
-            (needle, e.args[0] if PY3 else e.message))
+            (needle, e.args[0]))
     try:
         haystack_s = normalize_to_xhtml(haystack)
     except ValidationError as e:
         raise XMLParsingError(
             'Could not parse haystack: %s into xml. %s' %
-            (haystack, e.args[0] if PY3 else e.message))
+            (haystack, e.args[0]))
     return needle_s == haystack_s
 
 

@@ -7,7 +7,7 @@ except ImportError:
     import htmlentitydefs
 
 from xml.sax._exceptions import SAXParseException
-from strainer.xhtmlify import PY3
+
 
 __all__ = ['is_wellformed_xml', 'is_wellformed_xhtml']
 
@@ -61,7 +61,7 @@ def is_wellformed_xml(docpart, doctype='', entitydefs={}, record_error=None):
                 column -= len(doctype) - (doctype.rfind('\n') + 1)
             # Convert column to 1-based indexing
             record_error('line %d, column %d: %s' % (
-                line, column + 1, e.args[0] if PY3 else e.message
+                line, column + 1, e.args[0]
             ))
         return False
 

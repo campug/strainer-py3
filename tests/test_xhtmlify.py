@@ -1,10 +1,11 @@
 import re
 import encodings.aliases
 import codecs
+import six
+
 from strainer.xhtmlify import xhtmlify as _xhtmlify, xmlparse, ValidationError
 from strainer.xhtmlify import sniff_encoding, fix_xmldecl
 from strainer.doctypes import DOCTYPE_XHTML1_STRICT
-import six
 
 
 def xhtmlify(html, *args, **kwargs):
@@ -12,12 +13,15 @@ def xhtmlify(html, *args, **kwargs):
        and that it is idempotent (makes no changes when fed its output)."""
     _wrap = None
     if '_wrap' in kwargs:
-        _wrap = kwargs['_wrap']
-        del kwargs['_wrap']
+        _wrap = kwargs.pop('_wrap')
+    unicode_input = isinstance(html, six.text_type)
     xhtml = _xhtmlify(html, *args, **kwargs)
+    assert isinstance(xhtml, six.text_type) == unicode_input
+    regex_type = six.u if unicode_input else six.b
+    stripped_xhtml = None
     try:
         # ET can't handle <!...>
-        stripped_xhtml = re.sub(r'(?s)<!(?!\[).*?>', '', xhtml)
+        stripped_xhtml = re.sub(regex_type(r'(?s)<!(?!\[).*?>'), '', xhtml)
         xmlparse(stripped_xhtml, wrap=_wrap)
     except Exception as e:
         assert False, (stripped_xhtml, str(e))
@@ -902,7 +906,8 @@ def test_fix_xmldecl():
             ''.encode(encoding)
         except LookupError:  # not trying to handle unknown encodings yet
             continue
-        xmldecl = fix_xmldecl(six.u('  <?xml>'), encoding, add_encoding=True)
+        xmldecl = fix_xmldecl(six.u('  <?xml>').encode(encoding), encoding,
+                              add_encoding=True)
         if encoding.lower().startswith('utf'):
             if '16' in encoding:
                 if 'le' in encoding.lower():
@@ -932,10 +937,16 @@ def test_formfeed_in_xmldecl():
 
 def test_xhtmlify_handles_utf8_xmldecl():
     result = xhtmlify(six.u('<?xml><html>'), 'utf-8', _wrap=False)
+    assert result==six.u('<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>')
+    result = xhtmlify(six.u('<?xml><html>').encode('utf-8'), 'utf-8',
+                      _wrap=False)
     assert result.decode('utf-8')==six.u('<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>')
 
 def test_xhtmlify_handles_utf16_xmldecl():
     result = xhtmlify(six.u('<?xml><html>'), 'utf_16_be', _wrap=False)
+    assert result==six.u('<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>')
+    result = xhtmlify(six.u('<?xml><html>').encode('utf_16_be'), 'utf_16_be',
+                      _wrap=False)
     assert result.decode('utf16')==six.u('<?xml version=\'1.0\'?><html xmlns="http://www.w3.org/1999/xhtml"></html>')
 
 def test_doctype():
