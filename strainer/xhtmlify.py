@@ -371,7 +371,9 @@ def fix_xmldecl(xml, encoding=None, add_encoding=False, default_version='1.0'):
         # Python encodings of that name don't provide one.
         prefix = encode(bom)
     else:
-        prefix = encode(six.u(''))
+        # We can't just encode the empty string since Py 2.7 and later
+        # special-case emit the empty string in that case :-(
+        prefix = encode(six.u('K'))[:-len(encode(six.u('K')))]
     chars_we_need = ('''abcdefghijklmnopqrstuvwxyz'''
                      '''ABCDEFGHIJKLMNOPQRSTUVWXYZ'''
                      '''0123456789.-_ \t\r\n<?'"[]:()+*>''')
@@ -862,7 +864,7 @@ def xmlparse(snippet, encoding=None, wrap=None):
     """Parse snippet as XML with ElementTree/expat.  By default it wraps the
        snippet in an outer <document> element before parsing (unless the
        snippet starts "<?xml" or u"\ufeff<?xml").  This can be suppressed by
-       setting wrap to True or forced by setting wrap to False."""
+       setting wrap to False or forced by setting wrap to True."""
     import xml.parsers.expat
     from xml.etree import ElementTree as ET
     unicode_input = isinstance(snippet, six.text_type)
@@ -888,13 +890,8 @@ def xmlparse(snippet, encoding=None, wrap=None):
         input_bytes = snippet_bytes
         input_text = snippet_bytes.decode(encoding)
     try:
-        if encoding:
-            try:
-                parser = ET.XMLParser(encoding=encoding)
-            except TypeError:
-                parser = ET.XMLParser()  # old version
-        else:
-            parser = ET.XMLParser()  # let it use the standard algorithm
+        # The parser uses the XML standard encoding sniffing algorithm
+        parser = ET.XMLParser()
         parser.feed(input_bytes)
         parser.close()
     except xml.parsers.expat.ExpatError as e:
@@ -927,7 +924,9 @@ def sniff_encoding(xml):
     # Now the fun really starts. We compile the encoded sniffer regexp.
     # We must use an encoder to handle utf_8_sig properly.
     encode = codecs.lookup(enc).incrementalencoder().encode
-    prefix = encode('')  # any header such as a UTF-8 BOM
+    # We can't just encode the empty string since Py 2.7 and later
+    # special-case emit the empty string in that case :-(
+    prefix = encode(six.u('K'))[:-len(encode(six.u('K')))]
     if enc in ('utf_16_le', 'utf_16_be'):
         prefix = six.u('\ufeff').encode(enc)  # the standard approach fails
     L = lambda s: re.escape(encode(s))  # encoded form of literal s
