@@ -68,8 +68,10 @@ def normalize_to_xhtml(needle, encoding=None):
     needle_node = remove_whitespace_nodes(needle_node)
     remove_namespace(needle_node)
     needle_s = etree.tostring(needle_node)
-    if unicode_input:
+    if unicode_input and not isinstance(needle_s, six.text_type):
         needle_s = needle_s.decode(encoding)
+    elif not unicode_input and isinstance(needle_s, six.text_type):
+        needle_s = needle_s.encode(encoding)
     return needle_s
 
 
