@@ -5,6 +5,7 @@ import copy
 import re
 from pprint import pformat, pprint
 import six
+import warnings
 try:
     from simplejson import loads
 except ImportError:
@@ -40,17 +41,25 @@ def remove_namespace(doc):
 
 
 def replace_escape_chars(needle):
+    warnings.warn("This function is misguided, dangerous and will be deleted",
+                  DeprecationWarning)
+    # Special-casing a particular character should be a clue you're doing
+    # something wrong.  In this case, you need to specify an encoding or
+    # use unicode.
     needle = needle.replace('&nbsp;', ' ')
     needle = needle.replace(six.u('\xa0'), ' ')
     return needle
 
 
-def normalize_to_xhtml(needle):
-    # We still need this, when in a webtest response, &nbsp; gets replaced
-    # with \xa0, and xhtmlify can't handle non-acii
-    needle = replace_escape_chars(needle)
+def normalize_to_xhtml(needle, encoding=None):
+    # xhtmlify requires the input to be unicode or that the encoding be
+    # specified if using bytes.
     #first, we need to make sure the needle is valid html
-    needle = xhtmlify(needle)
+    unicode_input = isinstance(needle, six.text_type)
+    if unicode_input:
+        encoding = encoding or 'utf-8'
+        needle = needle.encode(encoding)
+    needle = xhtmlify(needle, encoding=encoding)
     try:
         needle_node = etree.fromstring(needle)
     except ExpatError as e:
@@ -59,6 +68,8 @@ def normalize_to_xhtml(needle):
     needle_node = remove_whitespace_nodes(needle_node)
     remove_namespace(needle_node)
     needle_s = etree.tostring(needle_node)
+    if unicode_input:
+        needle_s = needle_s.decode(encoding)
     return needle_s
 
 
